@@ -584,7 +584,7 @@ def xcom(comy, vcom, hip_height):
     return xcom
 
 
-# NOTE: SHIT DONT WORK
+# NOTE: SHIT KINDA WORKS
 def double_support(fl_x, hl_x, manual_analysis=False, filt_window=40):
     """Finds double support phases from forlimb movement
 
@@ -682,6 +682,34 @@ def cop(fl_x, hl_x, fl_y, hl_y, manual_analysis=False):
 
         # Replace valid double support region into CoP array
         cop[ds_begin[i] : ds_end[i]] = current_region[:]
+
+    return cop
+
+
+def lazy_cop(fl_y, hl_y):
+    """Lazier CoP method looking at average y cord of limbs continuously
+
+    **WARNING**
+
+    This method does not consider double double support phases to be meaningful
+
+    Parameters
+    ----------
+    fl_y: np.ndarray
+        forelimb y coordinate
+    hl_y: np.ndarray
+        hindlimb y coordinate
+
+    Returns
+    -------
+    cop: np.ndarray
+        Numpy array of average y cord for forelimb and hindlimb
+
+    """
+
+    # Get indices for double support phases
+
+    cop = (fl_y + hl_y) / 2
 
     return cop
 
@@ -984,25 +1012,28 @@ def main():
 
     # Settings before running initial workup from DeepLabCut
     figure_title = f"Step Cycles for level-test-M{mouse_number}-vid-{video}"
-    figure_filename = f"../tests/dlctools/m{mouse_number}-{video}.pdf"
-    step_cycles_filename = f"../tests/dlctools/m{mouse_number}-step-cycles-{video}.csv"
+    figure_filename = f"../../tests/dlctools/m{mouse_number}-{video}.pdf"
+    step_cycles_filename = (
+        f"../../tests/dlctools/m{mouse_number}-step-cycles-{video}.csv"
+    )
 
     # Some things to set for plotting/saving
-    lmos_filename = f"../tests/dlctools/m{mouse_number}-lmos-{video}.csv"
-    rmos_filename = f"../tests/dlctools/m{mouse_number}-rmos-{video}.csv"
+    lmos_filename = f"../../tests/dlctools/m{mouse_number}-lmos-{video}.csv"
+    rmos_filename = f"../../tests/dlctools/m{mouse_number}-rmos-{video}.csv"
     mos_figure_title = (
         f"Measurement of Stability For Level Test M{mouse_number}-{video}"
     )
-    mos_figure_filename = f"../tests/dlctools/m{mouse_number}-mos-{video}.pdf"
+    mos_figure_filename = f"../../tests/dlctools/m{mouse_number}-mos-{video}.pdf"
 
     # Loading in a dataset
     df, bodyparts, scorer = load_data(
-        f"../data/kinematics/EMG-test-1-pre-emg_0000{video}DLC_resnet50_dtr_update_predtxApr8shuffle1_1110000_filtered.h5"
+        # f"../data/kinematics/EMG-test-1-pre-emg_0000{video}DLC_resnet50_dtr_update_predtxApr8shuffle1_1110000_filtered.h5"
+        f"../../data/kinematics/EMG-test-1-pre-emg_0000{video}DLC_resnet50_dtr_update_predtxApr8shuffle1_1110000_filtered.h5"
     )
 
     # Loading in skeleton
     sk_df = pd.read_csv(
-        f"../data/kinematics/EMG-test-1-pre-emg_0000{video}DLC_resnet50_dtr_update_predtxApr8shuffle1_1110000_filtered_skeleton.csv"
+        f"../../data/kinematics/EMG-test-1-pre-emg_0000{video}DLC_resnet50_dtr_update_predtxApr8shuffle1_1110000_filtered_skeleton.csv"
     )
     limb_names = [
         "iliac_crest_hip",
@@ -1027,7 +1058,7 @@ def main():
         limb_names,
         calib_factor,
         save_as_csv=True,
-        csv_filename="../tests/dlctools/limb_measure-test.csv",
+        csv_filename="../../tests/dlctools/limb_measure-test.csv",
     )
     print(f"Length of limb coordinates in cm\n{limb_diffs}")
 
@@ -1074,12 +1105,13 @@ def main():
     xcom_trimmed = xcom(comy_np, com_slope, hip_h)
 
     # Experimental Estimation of CoP considering the standards used
-    rightcop = cop(rflx_np, rhlx_np, rfly_np, rhly_np)
+    # rightcop = cop(rflx_np, rhlx_np, rfly_np, rhly_np)
+    rightcop = lazy_cop(rfly_np, rhly_np)
     rightcop = sig.savgol_filter(rightcop, 40, 3)
-    leftcop = cop(lflx_np, lhlx_np, lfly_np, lhly_np)
+    leftcop = lazy_cop(lfly_np, lhly_np)
     leftcop = sig.savgol_filter(leftcop, 40, 3)
-    right_DS = rightcop
-    left_DS = leftcop
+    # right_DS = rightcop
+    # left_DS = leftcop
 
     # Double support testing
     # rds = double_support(rflx_np, rhlx_np, manual_analysis=False)
