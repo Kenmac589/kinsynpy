@@ -1,0 +1,13 @@
+README.md
+pyproject.toml
+requirements.txt
+setup.py
+kinsynpy/__init__.py
+kinsynpy/dlctools.py
+kinsynpy/latstability.py
+kinsynpy/motorpyrimitives.py
+kinsynpy/testing.py
+kinsynpy.egg-info/PKG-INFO
+kinsynpy.egg-info/SOURCES.txt
+kinsynpy.egg-info/dependency_links.txt
+kinsynpy.egg-info/top_level.txt
