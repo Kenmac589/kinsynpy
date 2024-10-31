@@ -1,10 +1,8 @@
-import dlctools as dlt
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-
 import skinematics as ski
 from scipy import signal
 
@@ -69,6 +67,14 @@ def get_angle(ax, ay, bx, by):
     angle = ski.vector.angle((ax, ay), (bx, by))
 
     return angle
+
+
+def edit_test(test_phrase):
+    print(test_phrase)
+
+    return_check = f"Return plus {test_phrase}"
+
+    return return_check
 
 
 def main():

@@ -1,0 +1,6 @@
+Metadata-Version: 2.1
+Name: kinsynpy
+Version: 1.0
+Summary: Some functions for kinematics and EMG analysis
+Author-email: Kenzie MacKinnon <kenziemackinnon5@gmail.com>
+Requires-Python: >=3.9

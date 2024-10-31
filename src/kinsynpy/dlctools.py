@@ -976,7 +976,11 @@ def main():
     manual_analysis = False
     save_auto = False
     select_region = False
-    show_plots = True
+    show_plots = False
+
+    # phrase = "In EMG-test folder"
+    # func_test = kst.edit_test(phrase)
+    # print(func_test)
 
     # Settings before running initial workup from DeepLabCut
     figure_title = f"Step Cycles for level-test-M{mouse_number}-vid-{video}"
