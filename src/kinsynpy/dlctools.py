@@ -1027,7 +1027,6 @@ def main():
 
     # Loading in a dataset
     df, bodyparts, scorer = load_data(
-        # f"../data/kinematics/EMG-test-1-pre-emg_0000{video}DLC_resnet50_dtr_update_predtxApr8shuffle1_1110000_filtered.h5"
         f"../../data/kinematics/EMG-test-1-pre-emg_0000{video}DLC_resnet50_dtr_update_predtxApr8shuffle1_1110000_filtered.h5"
     )
 
@@ -1105,20 +1104,15 @@ def main():
     xcom_trimmed = xcom(comy_np, com_slope, hip_h)
 
     # Experimental Estimation of CoP considering the standards used
-    # rightcop = cop(rflx_np, rhlx_np, rfly_np, rhly_np)
-    rightcop = lazy_cop(rfly_np, rhly_np)
-    rightcop = sig.savgol_filter(rightcop, 40, 3)
-    leftcop = lazy_cop(lfly_np, lhly_np)
-    leftcop = sig.savgol_filter(leftcop, 40, 3)
-    # right_DS = rightcop
-    # left_DS = leftcop
+    rightcop = cop(rflx_np, rhlx_np, rfly_np, rhly_np)
+    leftcop = cop(lflx_np, lhlx_np, lfly_np, lhly_np)
 
     # Double support testing
-    # rds = double_support(rflx_np, rhlx_np, manual_analysis=False)
-    # lds = double_support(lflx_np, lhlx_np, manual_analysis=False)
+    rds = double_support(rflx_np, rhlx_np, manual_analysis=False)
+    lds = double_support(lflx_np, lhlx_np, manual_analysis=False)
 
-    # print(f"Right double support test {rds}")
-    # print(f"Left double support test {lds}")
+    print(f"Right double support test {rds}")
+    print(f"Left double support test {lds}")
 
     # Step cycle Estimation
     toe_swing_onset, toe_swing_offset = swing_estimation(toex_np)
