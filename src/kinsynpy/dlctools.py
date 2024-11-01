@@ -8,24 +8,6 @@ email (Work): kenzie.mackinnon@dal.ca
 Credit for `load_data` and `smooth_trajectory` are exact copies from `dlc2kinematics`
 and of course the whole suite of software around it. Simply wanted to minimize the
 dependencies for the scripts.
-
-@software{dlc2kinematics,
-  author       = {Mathis, Mackenzie and
-                  Lauer, Jessy and
-                  Nath, Tanmay and
-                  Sandbrink, Kai and
-                  Beauzile, Michael and
-                  Hausmann, Sébastien and
-                  Schneider, Steffen and
-                  Mathis, Alexander},
-  title        = {{DLC2Kinematics: a post-deeplabcut module for kinematic analysis}},
-  month        = feb,
-  year         = 2020,
-  publisher    = {Zenodo},
-  version      = {v0.0.4},
-  doi          = {10.5281/zenodo.6669074},
-  url          = {https://doi.org/10.5281/zenodo.6669074}
-}
 """
 
 import csv

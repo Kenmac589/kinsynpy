@@ -10,8 +10,9 @@ Not recommended at this point but if you're curious you can grab the kinsynpy fo
 
 ```
 conda activate <name of env>
-git clone
-
+git clone https://github.com/Kenmac589/kinsynpy.git
+cd ./kinsynpy/
+pip intall .
 ```
 
 ## Credits
