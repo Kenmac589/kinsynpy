@@ -34,10 +34,16 @@ def read_all_csv(directory_path):
 
 def step_duration(input_dataframe, swonset_ch):
     """Calculates step duration based on swing onsets
-    :param input_dataframe: Exported channels from spike most importantly swing onset
 
-    :return adjusted_time_differences:
-    :return adjusted_treadmill_speeds:
+    Parameters
+    ----------
+    input_dataframe:
+        Exported channels from spike most importantly swing onset
+
+    Returns
+    -------
+    adjusted_time_differences:
+    adjusted_treadmill_speeds:
     """
     # Define the value and column to search for
     value_to_find = 1
@@ -88,10 +94,16 @@ def step_duration(input_dataframe, swonset_ch):
 
 def swing_estimation(input_dataframe, x_channel, width_threshold=40):
     """This approximates swing onset and offset from kinematic data
-    :param input_dataframe: Exported channels from spike most importantly the x values for a channel
 
-    :return swing_onset: A list of indices where swing onset occurs
-    :return swing_offset: A list of indices where swing offet occurs
+    Parameters
+    ----------
+    input_dataframe:
+        Exported channels from spike most importantly the x values for a channel
+
+    swing_onset:
+        A list of indices where swing onset occurs
+    swing_offset:
+        A list of indices where swing offet occurs
     """
 
     foot_cord = input_dataframe[x_channel].to_numpy(dtype=float)
@@ -104,10 +116,18 @@ def swing_estimation(input_dataframe, x_channel, width_threshold=40):
 
 def step_cycle_est(input_dataframe, x_channel, width_threshold=40):
     """This approximates swing onset and offset from kinematic data
-    :param input_dataframe: Exported channels from spike most importantly the x values for a channel
 
-    :return cycle_durations: A numpy array with the duration of each cycle
-    :return average_step: A list of indices where swing offet occurs
+    Parameters
+    ----------
+    input_dataframe:
+        Exported channels from spike most importantly the x values for a channel
+
+    Returns
+    -------
+    cycle_durations:
+        A numpy array with the duration of each cycle
+    average_step:
+        A list of indices where swing offet occurs
     """
 
     time = input_dataframe["Time"].to_numpy(dtype=float)
@@ -129,10 +149,18 @@ def step_cycle_est(input_dataframe, x_channel, width_threshold=40):
 
 def manual_marks(related_trace, title="Select Points"):
     """Manually annotate points of interest on a given trace
-    :param related_trace: Trace you want to annotate
 
-    :return manual_marks_x: array of indices to approx desired value in original trace
-    :return manual_marks_y: array of selected values
+    Parameters
+    ----------
+    related_trace:
+        Trace you want to annotate
+
+    Returns
+    -------
+    manual_marks_x:
+        array of indices to approx desired value in original trace
+    manual_marks_y:
+        array of selected values
     """
 
     # Open interface with trace
@@ -155,10 +183,18 @@ def manual_marks(related_trace, title="Select Points"):
 
 def extract_cycles(input_dataframe, swonset_channel="44 sw onset"):
     """Get cycle periods
-    @param input_dataframe: spike file input as *.csv
-    @param swonset_channel: the channel with swing onsets
 
-    @return step_cycles: the step cycles
+    Parameters
+    ----------
+    input_dataframe:
+        spike file input as *.csv
+    swonset_channel:
+        the channel with swing onsets
+
+    Returns
+    -------
+    step_cycles:
+        the step cycles
     """
     # Define the value and column to search for
     value_to_find = 1
@@ -204,12 +240,22 @@ def stance_duration(
     input_dataframe, swonset_channel="44 sw onset", swoffset_channel="45 sw offset"
 ):
     """Stance duration during step cycle
-    @param input_dataframe: spike file input as *.csv
-    @param swonset_channel: the channel with swing onsets
-    @param swoffset_channel: the channel with swing offsets
 
-    @return stance_duration_lengths: How long each stance duration is
-    @return stance_duration_timings: List of timings where stance duration begins
+    Parameters
+    ----------
+    input_dataframe:
+        spike file input as *.csv
+    swonset_channel:
+        the channel with swing onsets
+    swoffset_channel:
+        the channel with swing offsets
+
+    Returns
+    -------
+    stance_duration_lengths:
+        How long each stance duration is
+    stance_duration_timings:
+        List of timings where stance duration begins
     """
 
     # Define the value and column to search for
@@ -290,11 +336,19 @@ def weighted_slope(input_dataframe, p, comy="37 CoMy (cm)"):
 
 def median_filter(arr, k):
     """
-    :param arr: input numpy array
-    :param k: is the size of the window you want to slide over the array (kernel).
 
-    :return filtarr: An array of the same length where each element is the median of
-    a window centered around the index in the array.
+    Parameters
+    ----------
+    arr:
+        input numpy array
+    k:
+        is the size of the window you want to slide over the array (kernel).
+
+    Returns
+    -------
+    filtarr:
+        An array of the same length where each element is the median of
+        a window centered around the index in the array.
     """
     # Initialize output array
     result = []
@@ -317,9 +371,17 @@ def median_filter(arr, k):
 
 def spike_slope(comy, p):
     """
-    :param comy: numpy array of the y coordinate of the center of mass
-    :param p: How many values you want in either direction to be included
 
+    Parameters
+    ----------
+    comy:
+        numpy array of the y coordinate of the center of mass
+    p:
+        How many values you want in either direction to be included
+
+    Returns
+    -------
+    slope:
 
     """
 
@@ -399,7 +461,11 @@ def slope(input_dataframe, time_constant, comy="37 CoMy (cm)"):
 # TODO: Center of pressure calculation needs to get done
 def copressure(input_dataframe, ds_channel, hl_channel, fl_channel):
     """Calculation for center of pressure
-    :param input_dataframe: spike file input as *.csv
+
+    Parameters
+    ----------
+    input_dataframe:
+        spike file input as *.csv
 
     """
     input_dataframe_subset = input_dataframe.loc[
@@ -417,13 +483,24 @@ def step_width(
     ll_y: str,
 ) -> np.array:
     """Step width during step cycle
-    :param input_dataframe: spike file input as *.csv
-    :param rl_swoff: channel containing swoffset events
-    :param ll_swon: channel containing swoffset events
-    :param rl_y: spike channel with y coordinate for the right limb
-    :param ll_y: spike channel with y coordinate for the right limb
 
-    :return step_widths: numpy array of step width values for each step cycle
+    Parameters
+    ----------
+    input_dataframe:
+        spike file input as *.csv
+    rl_swoff:
+        channel containing swoffset events
+    ll_swon:
+        channel containing swoffset events
+    rl_y:
+        spike channel with y coordinate for the right limb
+    ll_y:
+        spike channel with y coordinate for the right limb
+
+    Returns
+    -------
+    step_widths:
+        numpy array of step width values for each step cycle
     """
     value_to_find = 1
 
@@ -471,13 +548,24 @@ def step_width_est(
     ll_y: str,
 ) -> np.array:
     """Step width during step cycle
-    :param input_dataframe: spike file input as *.csv
-    :param rl_swoff: channel containing swoffset events
-    :param ll_swon: channel containing swoffset events
-    :param rl_y: spike channel with y coordinate for the right limb
-    :param ll_y: spike channel with y coordinate for the right limb
 
-    :return step_widths: numpy array of step width values for each step cycle
+    Parameters
+    ----------
+    input_dataframe:
+        spike file input as *.csv
+    rl_swoff:
+        channel containing swoffset events
+    ll_swon:
+        channel containing swoffset events
+    rl_y:
+        spike channel with y coordinate for the right limb
+    ll_y:
+        spike channel with y coordinate for the right limb
+
+    Returns
+    -------
+    step_widths:
+        numpy array of step width values for each step cycle
     """
 
     # Filtering whole dataframe down to values we are considering
@@ -517,12 +605,18 @@ def hip_height(
     prominence=0.004,
 ):
     """Approximates Hip Height
-    :param input_dataframe: spike file input as *.csv
-    :param toey: spike channel with y coordinate for the toe
-    :param hipy: spike channel with y coordinate for the hip
-    :param manual: (Boolean) whether to manually label regions where foot is on ground
+    input_dataframe:
+        spike file input as *.csv
+    toey:
+        spike channel with y coordinate for the toe
+    hipy:
+        spike channel with y coordinate for the hip
+    manual:
+        (Boolean) whether to manually label regions where foot is on ground
 
-    :return hip_height: returns hip height in meters (cm)
+    Returns
+    -------
+    hip_height: returns hip height in meters (cm)
     """
 
     # Bringing in the values for toey and hipy
