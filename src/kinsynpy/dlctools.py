@@ -349,7 +349,7 @@ def mark_process(df, scorer, marker, cord, calib, smooth_wind=40):
     return marker_np
 
 
-def swing_estimation(foot_cord, manual_peaks=False, width_threshold=40):
+def swing_estimation(foot_cord, width_threshold=40, manual_peaks=False):
     """This approximates swing onset and offset from kinematic data.
 
     Parameters
