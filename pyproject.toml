@@ -7,4 +7,4 @@ authors=[
     {name = "Kenzie MacKinnon", email = "kenziemackinnon5@gmail.com"}
 ]
 [build-system]
-requires = ["setuptools", "seaborn"]
+requires = ["setuptools", "seaborn", "pandas"]
