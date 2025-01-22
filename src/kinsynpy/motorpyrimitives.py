@@ -194,7 +194,9 @@ def full_width_half_abs_min_scipy(motor_p_full, synergy_selection):
         current_primitive = motor_p_full[i * 200 : (i + 1) * 200, synergy_selection - 1]
 
         # Find peaks
-        peaks, properties = sp.signal.find_peaks(current_primitive, distance=40, width=2)
+        peaks, properties = sp.signal.find_peaks(
+            current_primitive, distance=40, width=2
+        )
         max_ind = np.argmax(peaks)
         # min_ind = np.argmin(mcurrent_primitive[0:max_ind])
 

@@ -13,6 +13,7 @@ dependencies for the scripts.
 import csv
 import os
 
+import kinsyn_utils as ku
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
