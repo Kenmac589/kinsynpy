@@ -1,0 +1,11 @@
+[project]
+name="kinsynpy"
+requires-python = ">=3.9"
+version="0.1"
+description = "Some functions for kinematics and EMG analysis"
+authors=[
+    {name = "Kenzie MacKinnon", email = "kenziemackinnon5@gmail.com"}
+]
+[build-system]
+requires = ["setuptools", "seaborn", "pandas"]
+
