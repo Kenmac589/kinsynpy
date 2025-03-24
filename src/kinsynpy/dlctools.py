@@ -669,6 +669,8 @@ def cop(fl_x, hl_x, fl_y, hl_y, calc_ds=True, manual_analysis=False):
 
             # Replace valid double support region into CoP array
             cop[ds_begin[i] : ds_end[i]] = current_region[:]
+    else:
+        cop = avg_y_cord
 
     return cop
 

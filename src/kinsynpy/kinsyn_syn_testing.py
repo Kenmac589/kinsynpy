@@ -122,6 +122,16 @@ def batch_step_cycle(rec_path):
             file_path = os.path.join(rec_path, filename)
             df, bodyparts, scorer = dlt.load_data(file_path)
 
+def norm_channel(channel, toex_np):
+
+    chan_np = 
+
+def data_preproc(input_dataframe):
+
+    print(input_dataframe)
+
+
+
 
 def main():
 
@@ -134,8 +144,11 @@ def main():
 
     # NOTE: Still working on understanding spikeinterface to get native recordings in here
     # For the mean time I usually just export at 1000 Hz and go from there.
+
+    # For file segmentation
     raw_file = pd.read_csv("../../data/emg/12mo-DTR-1-pre-dtx-full.txt", header=0)
     sync_channel = "12 Sync"
+
     rec_path = "../../data/videos/"
 
     emg_ch_order = [
@@ -148,6 +161,12 @@ def main():
         "10 Gs",
         "11 Gr",
     ]
+
+    df, scorer, bodyparts = dlt.load_data("../../data/videos/1yrDTRnoRosa-M1-19102023_000000DLC_resnet50_1yrDTRnoRosa-preDTXJan31shuffle1_1030000.h5")
+    test_input_file = pd.read_csv(
+        "../../data/videos/1yrDTRnoRosa-M1-19102023_000020-0-emg.csv"
+    )
+    print(test_input_file)
 
     # Only Run if video not already segmented
     # processed_emg_file = seg_raw_emg(

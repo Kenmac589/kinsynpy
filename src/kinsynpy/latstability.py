@@ -2,7 +2,7 @@
 Set of functions used to help with kinematic analysis of data exported from CED's Spike2.
 
 author: Kenzie MacKinnon
-email:  kenziemackinnon5@gmail.com
+email:  kenzie.mackinnon@dal.ca
 """
 
 import csv
@@ -100,6 +100,8 @@ def swing_estimation(input_dataframe, x_channel, width_threshold=40):
     input_dataframe:
         Exported channels from spike most importantly the x values for a channel
 
+    Returns
+    -------
     swing_onset:
         A list of indices where swing onset occurs
     swing_offset:
@@ -107,8 +109,9 @@ def swing_estimation(input_dataframe, x_channel, width_threshold=40):
     """
 
     foot_cord = input_dataframe[x_channel].to_numpy(dtype=float)
+    foot_cord = foot_cord[np.logical_not(np.isnan(foot_cord))]
 
-    swing_offset, _ = sp.signal.find_peaks(foot_cord, distance=width_threshold)
+    swing_offset, _ = sp.signal.find_peaks(foot_cord, width=width_threshold)
     swing_onset, _ = sp.signal.find_peaks(-foot_cord, width=width_threshold)
 
     return swing_onset, swing_offset
@@ -121,6 +124,8 @@ def step_cycle_est(input_dataframe, x_channel, width_threshold=40):
     ----------
     input_dataframe:
         Exported channels from spike most importantly the x values for a channel
+    x_channel: str
+        String containing the channel name you want to look at
 
     Returns
     -------
@@ -131,10 +136,14 @@ def step_cycle_est(input_dataframe, x_channel, width_threshold=40):
     """
 
     time = input_dataframe["Time"].to_numpy(dtype=float)
+    x_ch_original = input_dataframe[x_channel].to_numpy(dtype=float)
 
-    swing_onset, _ = swing_estimation(
-        input_dataframe=input_dataframe, x_channel=x_channel
-    )
+    foot_cord = x_ch_original[np.logical_not(np.isnan(x_ch_original))]
+    time = time[np.logical_not(np.isnan(x_ch_original))]
+
+    swing_offset, _ = sp.signal.find_peaks(foot_cord, width=width_threshold)
+    swing_onset, _ = sp.signal.find_peaks(-foot_cord, width=width_threshold)
+
     onset_timing = time[swing_onset]
 
     cycle_durations = np.array([])
@@ -858,7 +867,7 @@ def mos(
 
         # Making sure we are actually grabbing the last meaningful region of center of pressure
         if value_cop.shape[0] >= 2:
-            cop_point = np.mean(value_cop)
+            cop_point = np.median(value_cop)
             lmos = cop_point - xcom[beginning]
             lmos_values = np.append(lmos_values, lmos)
 
@@ -871,7 +880,7 @@ def mos(
         # Getting non-nan values from region
         value_cop = region_to_consider[~np.isnan(region_to_consider)]
         if value_cop.shape[0] >= 2:
-            cop_point = np.mean(value_cop)
+            cop_point = np.median(value_cop)
             rmos = xcom[beginning] - cop_point
             rmos_values = np.append(rmos_values, rmos)
 
@@ -913,8 +922,11 @@ def main():
 
     # print("Step Width for M1 without Perturbation")
 
-    wt1nondf = pd.read_csv("./wt_data/wt-1-non-all.txt")
-    wt5nondf = pd.read_csv("./wt_data/wt-5-non-all.txt")
+    wt1nondf = pd.read_csv("../../data/spike_exports/wt-1-non-all.txt")
+    wt5nondf = pd.read_csv("../../data/spike_exports/wt-5-non-all.txt")
+    emg_testdf = pd.read_csv(
+        "../../../lamisa_honours/lamisa_analysis/spike_exports/emg-test-4-pre-emg-non.txt"
+    )
 
     # Getting stance duration for all 4 limbs
     lhl_st_lengths, lhl_st_timings = stance_duration(
@@ -940,18 +952,39 @@ def main():
     )
 
     print(f"Manually done step width {len(wt1_fl_step_widths)}")
-    # wt1_hl_step_widths = step_width(
-    #     wt1nondf,
-    #     rl_swoff="54 HLr Sw of",
-    #     ll_swoff="52 HLl Sw of",
-    #     rl_y="30 HRy (cm)",
-    #     ll_y="28 HLy (cm)",
-    # )
+    wt1_hl_step_widths = step_width(
+        wt1nondf,
+        rl_swoff="54 HLr Sw of",
+        ll_swoff="52 HLl Sw of",
+        rl_y="30 HRy (cm)",
+        ll_y="28 HLy (cm)",
+    )
 
-    # wt1_swingon, wt1_swingoff = swing_estimation(wt1nondf, x_channel="34 FRx (cm)")
-    # wt1_cycle_dur, wt1_avg_cycle_period = step_cycle_est(
-    #     wt1nondf, x_channel="34 FRx (cm)"
-    # )
+    wt1_swingon, wt1_swingoff = swing_estimation(wt1nondf, x_channel="34 FRx (cm)")
+    wt1_cycle_dur, wt1_avg_cycle_period = step_cycle_est(
+        wt1nondf, x_channel="34 FRx (cm)"
+    )
+
+    emg_test4_swon, emg_test4_swoff = swing_estimation(
+        emg_testdf, x_channel="11 toex (cm)", width_threshold=10
+    )
+    cycle_dur, avg_cycle = step_cycle_est(
+        emg_testdf, "11 toex (cm)", width_threshold=15
+    )
+
+    print(cycle_dur)
+
+    # Plotting
+    toex_np = emg_testdf["11 toex (cm)"].to_numpy(dtype=float)
+    toex_np = toex_np[np.logical_not(np.isnan(toex_np))]  # removes nans
+    toex_np = sp.signal.savgol_filter(toex_np, 10, 3)  # smoothens
+
+    # Plot showing how step cycles were picked
+    plt.plot(toex_np, label="toex")
+    plt.plot(emg_test4_swon, toex_np[emg_test4_swon], "^", label="Swing Onset")
+    plt.plot(emg_test4_swoff, toex_np[emg_test4_swoff], "v", label="Swing Offset")
+    plt.legend(loc="best")
+    plt.show()
 
     wt1_fl_stwi_est = step_width_est(
         wt1nondf,
@@ -978,41 +1011,41 @@ def main():
     # Hip height test
 
     hiph_test_auto = hip_height(wt1nondf, "24 toey (cm)", "16 Hipy (cm)", manual=False)
-    # hiph_test_manual = hip_height(wt1nondf, "24 toey (cm)", "16 Hipy (cm)", manual=True)
+    hiph_test_manual = hip_height(wt1nondf, "24 toey (cm)", "16 Hipy (cm)", manual=True)
 
     print(f"hip height test {hiph_test_auto}")
-    # print(f"hip height test {hiph_test_manual}")
+    print(f"hip height test {hiph_test_manual}")
 
-    # print(len(wt1_cycle_dur))
-    #
-    # print(len(right_ds))
+    print(len(wt1_cycle_dur))
 
-    # x_cord = wt1nondf["34 FRx (cm)"].to_numpy(dtype=float)
+    print(len(right_ds))
+
+    x_cord = wt1nondf["34 FRx (cm)"].to_numpy(dtype=float)
     #
-    # custom_params = {"axes.spines.right": False, "axes.spines.top": False}
-    # sns.set(style="white", font_scale=1.0, rc=custom_params)
+    custom_params = {"axes.spines.right": False, "axes.spines.top": False}
+    sns.set(style="white", font_scale=1.0, rc=custom_params)
     #
-    # swing_legend = [
-    #     "Limb X cord",
-    #     "Swing offset",
-    #     "Swing onset",
-    # ]
-    #
-    # # For plotting figure demonstrating how calculation was done
-    # plt.title("Swing Estimation")
-    # plt.plot(x_cord)
-    # plt.plot(wt1_swingoff, x_cord[wt1_swingoff], "^")
-    # plt.plot(wt1_swingon, x_cord[wt1_swingon], "v")
-    # plt.legend(swing_legend, bbox_to_anchor=(1, 0.7))
-    #
-    # # Looking at result
-    # # axs[1].set_title("MoS Result")
-    # # axs[1].bar(0, np.mean(lmos), yerr=np.std(lmos), capsize=5)
-    # # axs[1].bar(1, np.mean(rmos), yerr=np.std(rmos), capsize=5)
-    # # axs[1].legend(mos_legend, bbox_to_anchor=(1, 0.7))
-    #
-    # plt.tight_layout()
-    # plt.show()
+    swing_legend = [
+        "Limb X cord",
+        "Swing offset",
+        "Swing onset",
+    ]
+
+    # For plotting figure demonstrating how calculation was done
+    plt.title("Swing Estimation")
+    plt.plot(x_cord)
+    plt.plot(wt1_swingoff, x_cord[wt1_swingoff], "^")
+    plt.plot(wt1_swingon, x_cord[wt1_swingon], "v")
+    plt.legend(swing_legend, bbox_to_anchor=(1, 0.7))
+
+    # Looking at result
+    # axs[1].set_title("MoS Result")
+    # axs[1].bar(0, np.mean(lmos), yerr=np.std(lmos), capsize=5)
+    # axs[1].bar(1, np.mean(rmos), yerr=np.std(rmos), capsize=5)
+    # axs[1].legend(mos_legend, bbox_to_anchor=(1, 0.7))
+
+    plt.tight_layout()
+    plt.show()
 
 
 if __name__ == "__main__":
