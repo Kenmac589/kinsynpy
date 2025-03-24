@@ -802,7 +802,7 @@ def mos_marks(related_trace, leftcop, rightcop, title="Select Points"):
     return manual_marks_x, manual_marks_y
 
 
-def mos(xcom, leftcop, rightcop, manual_peaks=False, width_threshold=40):
+def mos_nods(xcom, leftcop, rightcop, manual_peaks=False, width_threshold=40):
     """Measurement of lateral stability calculation
 
     Parameters
@@ -877,6 +877,91 @@ def mos(xcom, leftcop, rightcop, manual_peaks=False, width_threshold=40):
         # print(f"R COP {cop_point}")
         # print(f"xCoM {xcom[xcom_index]}")
         lmos_values = np.append(lmos_values, lmos)
+
+    return lmos_values, rmos_values, xcom_peaks, xcom_troughs
+
+
+def mos(xcom, leftcop, rightcop, manual_peaks=False, width_threshold=40):
+    """Measurement of lateral stability calculation
+
+    Parameters
+    ----------
+    xcom: numpy.ndarray
+        Numpy array containing the extrapolated Center of Mass (xCoM)
+    leftcop: numpy.ndarray
+        Numpy array containing the left Center of Pressure (CoP)
+    rightcop:
+        Numpy array containing the right Center of Pressure (CoP)
+    manual_peaks: boolean, default=`False`
+        Whether or not you want to manually annotate the trace
+    width_threshold: int, default=`40`
+        The width cutoff used by `scipy.signal.find_peaks`
+
+    Returns
+    -------
+    lmos_values: numpy.ndarray
+        Numpy array containing calculated left MoS values for a recording.
+    rmos_values: numpy.ndarray
+        Numpy array containing calculated right MoS values for a recording.
+    xcom_peaks: numpy.ndarray
+        Numpy array containing the peaks in the xCoM used to calculate MoS
+    xcom_troughs: numpy.ndarray
+        Numpy array containing the troughs in the xCoM used to calculate MoS
+    """
+
+    # Remove periods where it is not present or not valid
+    # left_band = np.percentile(xcom, q=50)
+    rightcop = np.where(rightcop == 0.0, np.nan, rightcop)
+    leftcop = np.where(leftcop == 0.0, np.nan, leftcop)
+    # rightcop[rightcop < right_band] = np.nan
+    # leftcop[leftcop < left_band] = np.nan
+
+    # Optional manual point selection
+    if manual_peaks is False:
+        # Getting peaks and troughs
+        xcom_peaks, _ = sig.find_peaks(xcom, width=width_threshold)
+        xcom_troughs, _ = sig.find_peaks(-xcom, width=width_threshold)
+    elif manual_peaks is True:
+        xcom_peaks, _ = mos_marks(xcom, leftcop, rightcop, title="Select Peaks")
+        xcom_troughs, _ = mos_marks(xcom, leftcop, rightcop, title="Select Troughs")
+    else:
+        print("The `manual` variable must be a boolean")
+
+    lmos_values = np.array([])
+    rmos_values = np.array([])
+
+    for i in range(len(xcom_peaks) - 1):
+        # Getting window between peak values
+        beginning = xcom_peaks[i]
+        end = xcom_peaks[i + 1]
+        region_to_consider = rightcop[beginning:end]
+
+        value_cop = region_to_consider[~np.isnan(region_to_consider)]
+        if value_cop.shape[0] >= 2:
+            cop_point = np.median(value_cop)
+            rmos = cop_point - xcom[beginning]
+            rmos_values = np.append(rmos_values, rmos)
+
+        # Getting non-nan values from region
+
+        # Making sure we are actually grabbing the last meaningful region of center of pressure
+        # print(f"L COP {cop_point}")
+        # print(f"xCoM {xcom[xcom_index]}")
+
+    for i in range(len(xcom_peaks) - 1):
+        # Getting window between peak values
+        beginning = xcom_peaks[i]
+        end = xcom_peaks[i + 1]
+        region_to_consider = leftcop[beginning:end]
+
+        # Getting non-nan values from region
+        value_cop = region_to_consider[~np.isnan(region_to_consider)]
+
+        # Making sure we are actually grabbing the last meaningful region of center of pressure
+        if value_cop.shape[0] >= 2:
+            cop_point = np.median(value_cop)
+            lmos = xcom[beginning] - cop_point
+            lmos_values = np.append(lmos_values, lmos)
 
     return lmos_values, rmos_values, xcom_peaks, xcom_troughs
 
@@ -993,7 +1078,7 @@ def main():
     manual_analysis = False
     save_auto = False
     select_region = False
-    show_plots = False
+    show_plots = True
 
     # phrase = "In EMG-test folder"
     # func_test = kst.edit_test(phrase)
@@ -1041,14 +1126,14 @@ def main():
     ]
 
     calib_factor = dlc_calibrate(df, bodyparts, scorer, calib_markers)
-    limb_diffs = limb_measurements(
-        sk_df,
-        limb_names,
-        calib_factor,
-        save_as_csv=True,
-        csv_filename="../../tests/dlctools/limb_measure-test.csv",
-    )
-    print(f"Length of limb coordinates in cm\n{limb_diffs}")
+    # limb_diffs = limb_measurements(
+    #     sk_df,
+    #     limb_names,
+    #     calib_factor,
+    #     save_as_csv=True,
+    #     csv_filename="../../data/",
+    # )
+    # print(f"Length of limb coordinates in cm\n{limb_diffs}")
 
     # Grabbing marker data
     toex_np = mark_process(df, scorer, "toe", "x", calib_factor)
@@ -1244,7 +1329,14 @@ def main():
 
     # Looking at result
     axs[1].set_title("MoS Result")
-    sns.barplot(data=mos_comb, x="Limb", y="MoS (cm)", ci=95, capsize=0.05, ax=axs[1])
+    sns.barplot(
+        data=mos_comb,
+        x="Limb",
+        y="MoS (cm)",
+        errorbar=("ci", 95),
+        capsize=0.05,
+        ax=axs[1],
+    )
     fig = plt.gcf()
     fig.set_size_inches(8.27, 11.7)  # A4 formatting 8.27” by 11.7”
     fig.tight_layout()
