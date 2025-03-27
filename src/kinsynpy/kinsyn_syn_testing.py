@@ -122,15 +122,16 @@ def batch_step_cycle(rec_path):
             file_path = os.path.join(rec_path, filename)
             df, bodyparts, scorer = dlt.load_data(file_path)
 
+
 def norm_channel(channel, toex_np):
 
-    chan_np = 
+    # chan_np =
+    print("testing")
+
 
 def data_preproc(input_dataframe):
 
     print(input_dataframe)
-
-
 
 
 def main():
@@ -162,11 +163,15 @@ def main():
         "11 Gr",
     ]
 
-    df, scorer, bodyparts = dlt.load_data("../../data/videos/1yrDTRnoRosa-M1-19102023_000000DLC_resnet50_1yrDTRnoRosa-preDTXJan31shuffle1_1030000.h5")
-    test_input_file = pd.read_csv(
-        "../../data/videos/1yrDTRnoRosa-M1-19102023_000020-0-emg.csv"
+    recording_number = 0
+    df, bodyparts, scorer = dlt.load_data(
+        "../../data/videos/1yrDTRnoRosa-M1-19102023_000000DLC_resnet50_1yrDTRnoRosa-preDTXJan31shuffle1_1030000.h5"
     )
-    print(test_input_file)
+    test_input_file = pd.read_csv(
+        f"../../data/videos/1yrDTRnoRosa-M1-19102023_000020-{recording_number}-emg.csv"
+    )
+    ip_channel = test_input_file["5 Ip"].to_numpy(dtype=float)
+    print(f"Ip: {len(ip_channel)}")
 
     # Only Run if video not already segmented
     # processed_emg_file = seg_raw_emg(
@@ -176,6 +181,45 @@ def main():
     #     video_path=rec_path,
     #     rec_name=recording_name,
     # )
+    calib_factor = dlt.dlc_calibrate(df, bodyparts, scorer=scorer)
+    toex_np = dlt.mark_process(df, scorer, "toe", "x", calib_factor)
+    print(f"Toe: {len(toex_np)}")
+
+    toe_swon, toe_swoff = dlt.swing_estimation(toex_np, width_threshold=40)
+
+    time = np.arange(0, len(toex_np), 1)
+    time = dlt.frame_to_time(time)
+
+    print(time[toe_swon])
+    swon_timings = time[toe_swon]
+    swoff_timings = time[toe_swoff]
+
+    np.savetxt(
+        f"../../data/videos/step_cycles/{recording_name}-{recording_number}-swon.csv",
+        swon_timings,
+        delimiter=",",
+    )
+    np.savetxt(
+        f"../../data/videos/step_cycles/{recording_name}-{recording_number}-swoff.csv",
+        swoff_timings,
+        delimiter=",",
+    )
+
+    custom_params = {"axes.spines.right": False, "axes.spines.top": False}
+    sns.set(
+        style="white",
+        font_scale=1.6,
+        font="serif",
+        palette="colorblind",
+        rc=custom_params,
+    )
+
+    plt.title("Swing Estimation")
+    plt.plot(toex_np, label="Toe X")
+    plt.plot(toe_swoff, toex_np[toe_swoff], "^", label="Swing Offset")
+    plt.plot(toe_swon, toex_np[toe_swon], "v", label="Swing Onset")
+    plt.legend(loc="best")
+    plt.show()
 
 
 if __name__ == "__main__":

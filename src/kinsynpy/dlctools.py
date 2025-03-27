@@ -168,7 +168,19 @@ def frame_to_time(frame_index, fps=500):
     return time_seconds
 
 
-def dlc_calibrate(df, bodyparts, scorer, calibration_markers):
+def dlc_calibrate(
+    df,
+    bodyparts,
+    scorer,
+    calibration_markers=[
+        "calib_1",
+        "calib_2",
+        "calib_3",
+        "calib_4",
+        "calib_5",
+        "calib_6",
+    ],
+):
     """
     Calibrate DLC output to physical distance via calibration marker estimation.
     This is redundant in ways as it's likely this will be loaded in for other things.

@@ -135,6 +135,46 @@ def nnmf_factorize(A, k):
     return W, H, C
 
 
+def syn_sel(norm_emg):
+    """Automatically selects synergies to use based on 95% rule
+    Parameters
+    ----------
+    norm_emg: pandas dataframe
+        dataframe containing normalized EMG channels
+
+    Returns
+    -------
+    syn_selection: int
+        The amount of synergies to use for Non-Negative matrix factorization
+
+    """
+    A = norm_emg.to_numpy()
+
+    # Defining set of components to use
+    num_components = np.array([2, 3, 4, 5, 6, 7])
+    R2All = np.zeros(len(num_components))
+
+    for i in range(len(R2All)):
+        W, H, C = nnmf_factorize(A, num_components[i])
+        R2All[i] = np.corrcoef(C.flatten(), A.flatten())[0, 1] ** 2
+        print("$R^2$ =", i + 2, ":", R2All[i])
+
+    i = 2
+    syn_selection = i
+    while R2All[i] < 0.95:
+        syn_selection = i
+        i = i + 1
+
+    # corrcoef = np.zeros(len(num_components))
+    # for i in range(len(R2All)):
+    #     corrcoef[i] = np.corrcoef(num_components[0 : i + 2], R2All[0 : i + 2])[0, 1]
+    #     print("r =", i + 2, ":", corrcoef[i])
+
+    # syn_selection = R2All[0]
+
+    return syn_selection
+
+
 def synergy_extraction(data_input, synergy_selection):
     """Synergy Extraction from factorized matricies
     @param data_input: path to csv data file
@@ -475,7 +515,11 @@ def show_modules(data_input, chosen_synergies, modules_filename="./output.png"):
 
 
 def show_synergies(
-    data_input, refined_primitives, chosen_synergies, synergies_name="./output.png"
+    data_input,
+    refined_primitives,
+    chosen_synergies,
+    channel_order=["GM", "Ip", "BF", "VL", "St", "TA", "Gs", "Gr"],
+    synergies_name="./output.png",
 ):
     """
     Make sure you check the channel order!!
@@ -490,7 +534,6 @@ def show_synergies(
     motor_primitives = motor_p_data.to_numpy()
 
     # fwhm_line = fwhm(motor_primitives, chosen_synergies)
-    channel_order = ["GM", "Ip", "BF", "VL", "St", "TA", "Gs", "Gr"]
     trace_length = 200
 
     samples = np.arange(0, len(motor_primitives))
@@ -908,6 +951,7 @@ def sel_primitive_trace(
         current_primitive = motor_primitives[
             i * 200 : (i + 1) * 200, synergy_selection - 1
         ]
+        # current_primitive = sp.signal.savgol_filter(current_primitive, , 3)
 
         primitive_mask = current_primitive > 0.0
         # primitive_mask = interpolate_primitive(primitive_mask)
@@ -984,7 +1028,6 @@ def main():
 
     sync_counts = raw_file_adjusted["12 Synch"].value_counts().items()
     count_sync = sync_counts["1"]
-    print(count_sync)
 
     # motor_p, motor_m = synergy_extraction(test_norm_emg, 3)
 

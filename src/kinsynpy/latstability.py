@@ -924,9 +924,9 @@ def main():
 
     wt1nondf = pd.read_csv("../../data/spike_exports/wt-1-non-all.txt")
     wt5nondf = pd.read_csv("../../data/spike_exports/wt-5-non-all.txt")
-    emg_testdf = pd.read_csv(
-        "../../../lamisa_honours/lamisa_analysis/spike_exports/emg-test-4-pre-emg-non.txt"
-    )
+    # emg_testdf = pd.read_csv(
+    #     "../../../lamisa_honours/lamisa_analysis/spike_exports/emg-test-4-pre-emg-non.txt"
+    # )
 
     # Getting stance duration for all 4 limbs
     lhl_st_lengths, lhl_st_timings = stance_duration(
@@ -951,7 +951,7 @@ def main():
         ll_y="33 FLy (cm)",
     )
 
-    print(f"Manually done step width {len(wt1_fl_step_widths)}")
+    print(f"Manually done step width for forelimb {np.mean(wt1_fl_step_widths)}")
     wt1_hl_step_widths = step_width(
         wt1nondf,
         rl_swoff="54 HLr Sw of",
@@ -959,32 +959,33 @@ def main():
         rl_y="30 HRy (cm)",
         ll_y="28 HLy (cm)",
     )
+    print(f"Manually done step width hindlimb {np.mean(wt1_hl_step_widths)}")
 
     wt1_swingon, wt1_swingoff = swing_estimation(wt1nondf, x_channel="34 FRx (cm)")
     wt1_cycle_dur, wt1_avg_cycle_period = step_cycle_est(
         wt1nondf, x_channel="34 FRx (cm)"
     )
 
-    emg_test4_swon, emg_test4_swoff = swing_estimation(
-        emg_testdf, x_channel="11 toex (cm)", width_threshold=10
-    )
-    cycle_dur, avg_cycle = step_cycle_est(
-        emg_testdf, "11 toex (cm)", width_threshold=15
-    )
-
-    print(cycle_dur)
-
-    # Plotting
-    toex_np = emg_testdf["11 toex (cm)"].to_numpy(dtype=float)
-    toex_np = toex_np[np.logical_not(np.isnan(toex_np))]  # removes nans
-    toex_np = sp.signal.savgol_filter(toex_np, 10, 3)  # smoothens
-
-    # Plot showing how step cycles were picked
-    plt.plot(toex_np, label="toex")
-    plt.plot(emg_test4_swon, toex_np[emg_test4_swon], "^", label="Swing Onset")
-    plt.plot(emg_test4_swoff, toex_np[emg_test4_swoff], "v", label="Swing Offset")
-    plt.legend(loc="best")
-    plt.show()
+    # emg_test4_swon, emg_test4_swoff = swing_estimation(
+    #     emg_testdf, x_channel="11 toex (cm)", width_threshold=10
+    # )
+    # cycle_dur, avg_cycle = step_cycle_est(
+    #     emg_testdf, "11 toex (cm)", width_threshold=15
+    # )
+    #
+    # print(cycle_dur)
+    #
+    # # Plotting
+    # toex_np = emg_testdf["11 toex (cm)"].to_numpy(dtype=float)
+    # toex_np = toex_np[np.logical_not(np.isnan(toex_np))]  # removes nans
+    # toex_np = sp.signal.savgol_filter(toex_np, 10, 3)  # smoothens
+    #
+    # # Plot showing how step cycles were picked
+    # plt.plot(toex_np, label="toex")
+    # plt.plot(emg_test4_swon, toex_np[emg_test4_swon], "^", label="Swing Onset")
+    # plt.plot(emg_test4_swoff, toex_np[emg_test4_swoff], "v", label="Swing Offset")
+    # plt.legend(loc="best")
+    # plt.show()
 
     wt1_fl_stwi_est = step_width_est(
         wt1nondf,
@@ -993,16 +994,16 @@ def main():
         rl_y="35 FRy (cm)",
         ll_y="33 FLy (cm)",
     )
-    print(f"Estimated step width {len(wt1_fl_stwi_est)}")
+    print(f"Estimated step width for forelimb {np.mean(wt1_fl_stwi_est)}")
 
-    wt5_fl_stwi_est = step_width_est(
-        wt5nondf,
-        rl_x="34 FRx (cm)",
-        ll_x="32 FLx (cm)",
-        rl_y="35 FRy (cm)",
-        ll_y="33 FLy (cm)",
+    wt1_hl_stwi_est = step_width_est(
+        wt1nondf,
+        rl_x="29 HRx (cm)",
+        ll_x="27 HLx (cm)",
+        rl_y="30 HRy (cm)",
+        ll_y="28 HLy (cm)",
     )
-    print(f"Estimated step width {len(wt5_fl_stwi_est)}")
+    print(f"Estimated step width for hindlimb {np.mean(wt1_hl_stwi_est)}")
 
     right_ds = double_support_est(
         wt1nondf, fl_channel="34 FRx (cm)", hl_channel="29 HRx (cm)", manual_peaks=False
@@ -1011,10 +1012,10 @@ def main():
     # Hip height test
 
     hiph_test_auto = hip_height(wt1nondf, "24 toey (cm)", "16 Hipy (cm)", manual=False)
-    hiph_test_manual = hip_height(wt1nondf, "24 toey (cm)", "16 Hipy (cm)", manual=True)
+    # hiph_test_manual = hip_height(wt1nondf, "24 toey (cm)", "16 Hipy (cm)", manual=True)
 
     print(f"hip height test {hiph_test_auto}")
-    print(f"hip height test {hiph_test_manual}")
+    # print(f"hip height test {hiph_test_manual}")
 
     print(len(wt1_cycle_dur))
 
