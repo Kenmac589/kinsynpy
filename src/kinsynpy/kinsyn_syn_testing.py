@@ -4,16 +4,15 @@ from tkinter import Tk, filedialog
 
 import cv2
 import matplotlib.pyplot as plt
-import motorpyrimitives as mp
 import numpy as np
 import pandas as pd
 import seaborn as sns
 from scipy import signal
+from sklearn.decomposition import NMF
 
 import kinsynpy.dlctools as dlt
 
 
-# import spikeinterface_gui.full as si
 def folder_selector():
 
     root = Tk()
@@ -21,6 +20,53 @@ def folder_selector():
     analysis_path = filedialog.askdirectory()
 
     return analysis_path
+
+
+def nnmf_factorize(A, k):
+    """Non-Negative Matrix Factorization for Muscle Synergy Extraction
+    @param A: input matrix
+    @param k: number of components (muscle channels)
+
+    @return W: motor primitives
+    @return H: motor modules
+    @return C: factorized matrix
+    """
+    nmf = NMF(n_components=k, init="random", random_state=0)
+    W = nmf.fit_transform(A)
+    H = nmf.components_
+    C = np.dot(W, H)
+    return W, H, C
+
+
+def synergy_extraction(data_input, synergy_selection):
+    """Synergy Extraction from factorized matricies
+
+    Parameters
+    ----------
+    data_input: pandas.core.frame.Dataframe
+        input containing normalized EMG channels
+    chosen_synergies: int
+        selected synergies to use
+
+    Returns
+    -------
+    W: numpy.ndarray
+        motor primitives array
+    H: numpy.ndarray
+        motor modules
+    """
+
+    # Load Data
+    A = data_input.to_numpy()
+
+    # Choosing best number of components
+    chosen_synergies = synergy_selection
+    W, H, C = nnmf_factorize(A, chosen_synergies)
+
+    motor_modules = H
+    motor_primitives = W
+
+    return motor_primitives, motor_modules
 
 
 def get_video_info(video_path, rec_name):
@@ -109,6 +155,135 @@ def seg_raw_emg(raw_emg, emg_ch, sync, video_path, rec_name):
     return segmented_recording
 
 
+def show_synergies(
+    data_input,
+    chosen_synergies,
+    channel_order=["GM", "Ip", "BF", "VL", "St", "TA", "Gs", "Gr"],
+    synergies_name="./output.png",
+):
+    """
+    Make sure you check the channel order!!
+
+    Parameters
+    ----------
+    data_input: pandas.core.frame.Dataframe
+        input containing normalized EMG channels
+    chosen_synergies: int
+        selected synergies to use
+    channel_order: list
+        the order that the channels show up in the recording file
+
+
+    """
+
+    # =======================================
+    # Presenting Data as a mutliplot figure |
+    # =======================================
+    motor_primitives, motor_modules = synergy_extraction(data_input, chosen_synergies)
+
+    # fwhm_line = fwhm(motor_primitives, chosen_synergies)
+    trace_length = 200
+
+    samples = np.arange(0, len(motor_primitives))
+    samples_binned = np.arange(trace_length)
+
+    fig, axs = plt.subplots(chosen_synergies, 2, figsize=(12, 8))
+    # Calculate the average trace for each column
+    number_cycles = (
+        len(motor_primitives) // trace_length
+    )  # Calculate the number of 200-value bins
+
+    for col in range(chosen_synergies):
+        primitive_trace = np.zeros(
+            trace_length
+        )  # Initialize an array for accumulating the trace values
+
+        # Iterate over the binned data by the number of cycles
+        for i in range(number_cycles):
+            # Get the data for the current bin in the current column
+            time_point_average = motor_primitives[
+                i * trace_length : (i + 1) * trace_length, col
+            ]
+
+            # Accumulate the trace values
+            primitive_trace += time_point_average
+
+        # Calculate the average by dividing the accumulated values by the number of bins
+        primitive_trace /= number_cycles
+
+        # Plot the average trace in the corresponding subplot
+        smooth_sample = signal.savgol_filter(samples[samples_binned], 30, 3)
+        axs[col, 1].plot(
+            smooth_sample, primitive_trace, color="red", label="Average Trace"
+        )
+        axs[col, 1].set_title("Synergy {}".format(col + 1))
+
+        # Iterate over the bins again to plot the individual bin data
+        for i in range(number_cycles):
+            # Get the data for the current bin in the current 0, column
+            time_point_average = motor_primitives[
+                i * trace_length : (i + 1) * trace_length, col
+            ]
+
+            smooth_sample = signal.savgol_filter(samples[samples_binned], 30, 3)
+            # Plot the bin data
+            axs[col, 1].plot(
+                smooth_sample,
+                time_point_average,
+                label="Bin {}".format(i + 1),
+                color="black",
+                alpha=0.1,
+            )
+
+        # Add vertical lines at the halfway point in each subplot
+        axs[col, 1].axvline(x=100, color="black")
+
+        # Begin Presenting Motor Modules
+
+        # Get the data for the current column
+        motor_module_column_data = motor_modules[
+            col, :
+        ]  # Select all rows for the current column
+
+        # Set the x-axis values for the bar graph
+        x_values = np.arange(len(motor_module_column_data))
+
+        # Plot the bar graph for the current column in the corresponding subplot
+        axs[col, 0].bar(x_values, motor_module_column_data)
+
+        # Remove top and right spines of each subplot
+        axs[col, 1].spines["top"].set_visible(False)
+        axs[col, 1].spines["right"].set_visible(False)
+        axs[col, 0].spines["top"].set_visible(False)
+        axs[col, 0].spines["right"].set_visible(False)
+
+        # Remove labels on x and y axes
+        axs[col, 0].set_xticklabels([])
+        axs[col, 1].set_yticklabels([])
+
+        # Remove x and y axis labels and ticks from the avg_trace subplot
+        axs[col, 1].set_xticks([])
+        axs[col, 1].set_yticks([])
+        axs[col, 1].set_xlabel("")
+        axs[col, 1].set_ylabel("")
+
+        # Remove x and y axis labels and ticks from the motor module subplot
+        axs[col, 0].set_xticks(x_values, channel_order)
+        # axs[1, col].set_xticks([])
+        axs[col, 0].set_yticks([])
+        # axs[1, col].set_xlabel('')
+        # axs[1, col].set_ylabel('')
+
+    # Adjust spacing between subplots
+    plt.tight_layout()
+    fig.suptitle(synergies_name, fontsize=16, fontweight="bold")
+    plt.subplots_adjust(top=0.9)
+    # plt.savefig(synergies_filename, dpi=300)
+
+    # Show all the plots
+    # plt.show(block=True)
+
+
 def batch_step_cycle(rec_path):
 
     # If video path is not valid
@@ -121,17 +296,6 @@ def batch_step_cycle(rec_path):
         if filename.endswith(".h5"):
             file_path = os.path.join(rec_path, filename)
             df, bodyparts, scorer = dlt.load_data(file_path)
-
-
-def norm_channel(channel, toex_np):
-
-    # chan_np =
-    print("testing")
-
-
-def data_preproc(input_dataframe):
-
-    print(input_dataframe)
 
 
 def main():

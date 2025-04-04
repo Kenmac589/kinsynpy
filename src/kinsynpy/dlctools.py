@@ -304,10 +304,13 @@ def analysis_reg_sel(mirror_y, com_y):
 
     time = np.arange(0, len(com_y), 1)
 
+    fig, axs = plt.subplots(2)
     # Open interface with trace
-    plt.plot(time, mirror_y, label="Mirror Y")
-    plt.plot(time, com_y, label="CoM Y")
-    plt.title("Label Start and Stop of Desired Regions")
+    axs[0].set_title("Label Start and Stop of Desired Regions")
+    axs[0].plot(time, mirror_y, label="Mirror Y")
+    axs[0].plot(time, com_y, label="CoM Y")
+
+    axs[1].plot(time, mirror_y, label="Mirror Y")
 
     # Go through and label regions desired
     manual_marks_pair = plt.ginput(0, 0)
@@ -902,7 +905,7 @@ def mos(xcom, leftcop, rightcop, manual_peaks=False, width_threshold=40):
         Numpy array containing the extrapolated Center of Mass (xCoM)
     leftcop: numpy.ndarray
         Numpy array containing the left Center of Pressure (CoP)
-    rightcop:
+    rightcop: numpy.ndarray
         Numpy array containing the right Center of Pressure (CoP)
     manual_peaks: boolean, default=`False`
         Whether or not you want to manually annotate the trace
