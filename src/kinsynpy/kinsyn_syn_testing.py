@@ -2,7 +2,6 @@ import os
 from pathlib import Path
 from tkinter import Tk, filedialog
 
-import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -11,6 +10,8 @@ from scipy import signal
 from sklearn.decomposition import NMF
 
 import kinsynpy.dlctools as dlt
+
+# import kinsynpy.kinsyn_utils as ksm
 
 
 def folder_selector():
@@ -67,93 +68,6 @@ def synergy_extraction(data_input, synergy_selection):
     motor_primitives = W
 
     return motor_primitives, motor_modules
-
-
-def get_video_info(video_path, rec_name):
-
-    # Ascertain length of recordings from videos
-    video_lengths = {}
-
-    # If video path is not valid
-    if not os.path.isdir(video_path):
-        print(f"{video_path} is not a valid directory.")
-        return
-
-    for filename in os.listdir(video_path):
-        #
-        if filename.endswith(".avi"):
-            file_path = os.path.join(video_path, filename)
-            video_name = Path(file_path).stem
-            video_number = video_name.replace(f"{rec_name}_0000", "")
-            video_number = int(video_number)
-
-            # Creating Video Capture object
-            video = cv2.VideoCapture(file_path)
-
-            # Count number of frames
-            frames = video.get(cv2.CAP_PROP_FRAME_COUNT)
-            fps = video.get(cv2.CAP_PROP_FPS)
-
-            # calculate duration of the video
-            seconds = frames / fps
-            video_lengths.update({video_number: seconds})
-
-            # print(f"Video {video_number} is {seconds} long")
-
-    return video_lengths
-
-
-def seg_raw_emg(raw_emg, emg_ch, sync, video_path, rec_name):
-    """Splices out individual recordings EMG data"""
-
-    # Preprocessing to ensure dataframe is in correct format
-    emg_ch.append(sync)
-    raw_emg = raw_emg.set_index("Time")
-    raw_emg = raw_emg.loc[:, emg_ch]
-    sync_occurences = raw_emg.loc[raw_emg[sync] == 1].index.tolist()
-
-    # Ascertain length of recordings from videos
-    video_lengths = {}
-
-    # If video path is not valid
-    if not os.path.isdir(video_path):
-        print(f"{video_path} is not a valid directory.")
-        return
-
-    for filename in os.listdir(video_path):
-        #
-        if filename.endswith(".avi"):
-            file_path = os.path.join(video_path, filename)
-            video_name = Path(file_path).stem
-            video_number = video_name.replace(f"{rec_name}_0000", "")
-            video_number = int(video_number)
-
-            # Creating Video Capture object
-            video = cv2.VideoCapture(file_path)
-
-            # Count number of frames
-            frames = video.get(cv2.CAP_PROP_FRAME_COUNT)
-            fps = video.get(cv2.CAP_PROP_FPS)
-
-            # calculate duration of the video
-            seconds = frames / fps
-            video_lengths.update({video_number: seconds})
-
-            # print(f"Video {video_number} is {seconds} long")
-
-    for i in range(len(video_lengths.keys())):
-        # Getting timing for given recording
-        recording_end = round(sync_occurences[i], 3)
-        recording_begin = round(recording_end - video_lengths[i], 3)
-        print(f"Video {i} begins at {recording_begin} and ends at {recording_end}")
-        # Selecting region from raw trace and saving as csv
-        seg_recording = raw_emg[recording_begin:recording_end]
-        seg_recording.to_csv(f"{video_path}/{video_name}-{i}-emg.csv")
-
-    segmented_recording = sync_occurences
-
-    return segmented_recording
-
 
 def show_synergies(
     data_input,
@@ -212,7 +126,7 @@ def show_synergies(
         primitive_trace /= number_cycles
 
         # Plot the average trace in the corresponding subplot
-        smooth_sample = signal.savgol_filter(samples[samples_binned], 30, 3)
+        smooth_sample = signal.savgol_filter(samples[samples_binned], 40, 3)
         axs[col, 1].plot(
             smooth_sample, primitive_trace, color="red", label="Average Trace"
         )
@@ -225,7 +139,7 @@ def show_synergies(
                 i * trace_length : (i + 1) * trace_length, col
             ]
 
-            smooth_sample = signal.savgol_filter(samples[samples_binned], 30, 3)
+            smooth_sample = signal.savgol_filter(samples[samples_binned], 40, 3)
             # Plot the bin data
             axs[col, 1].plot(
                 smooth_sample,
@@ -266,6 +180,13 @@ def show_synergies(
         axs[col, 1].set_yticks([])
         axs[col, 1].set_xlabel("")
         axs[col, 1].set_ylabel("")
+        axs[col, 1].set_ylim(np.max(smooth_sample))
+        axs[col, 1].text(
+            50, -0.2 * np.max(primitive_trace), "Swing", ha="center", va="center"
+        )
+        axs[col, 1].text(
+            150, -0.2 * np.max(primitive_trace), "Stance", ha="center", va="center"
+        )
 
         # Remove x and y axis labels and ticks from the motor module subplot
         axs[col, 0].set_xticks(x_values, channel_order)
@@ -338,7 +259,7 @@ def main():
     print(f"Ip: {len(ip_channel)}")
 
     # Only Run if video not already segmented
-    # processed_emg_file = seg_raw_emg(
+    # processed_emg_file = ksm.seg_raw_emg(
     #     raw_emg=raw_file,
     #     emg_ch=emg_ch_order,
     #     sync=sync_channel,

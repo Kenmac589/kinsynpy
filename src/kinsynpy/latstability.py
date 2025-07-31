@@ -882,6 +882,7 @@ def mos(
         if value_cop.shape[0] >= 2:
             cop_point = np.median(value_cop)
             rmos = xcom[beginning] - cop_point
+            rmos = np.abs(rmos)
             rmos_values = np.append(rmos_values, rmos)
 
     return lmos_values, rmos_values, xcom_peaks, xcom_troughs

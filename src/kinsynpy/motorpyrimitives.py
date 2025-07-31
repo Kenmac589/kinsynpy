@@ -16,15 +16,14 @@ email (Work): kenzie.mackinnon@dal.ca
 # %%
 
 import os
-
 # from scipy.interpolate import InterpolatedUnivariateSpline
 from pathlib import Path
 
-import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy as sp
+from scipy import signal
 from sklearn.decomposition import NMF
 
 # from statsmodels.nonparametric.kernel_regression import KernelReg
@@ -45,78 +44,6 @@ def read_all_csv(directory_path):
             data_dict[filename] = data
 
     return data_dict
-
-
-def seg_raw_emg(raw_emg, emg_ch, sync, video_path, rec_name):
-    """Splices out individual recordings EMG data
-
-    Parameters
-    ----------
-    raw_emg: pandas.core.frame.Dataframe
-        exported EMG recording
-    emg_ch: list
-        List of the channels you want to be included
-    sync: str
-        The specific channel that has the events showing recording end
-    video_path: str
-        File path to where the recorded videos are
-    rec_name: str
-        The prefix name for the recording
-
-    Returns
-    -------
-    segmented_recording: list
-        The times where the sync event is
-
-    """
-
-    # Preprocessing to ensure dataframe is in correct format
-    emg_ch.append(sync)
-    raw_emg = raw_emg.set_index("Time")
-    raw_emg = raw_emg.loc[:, emg_ch]
-    sync_occurences = raw_emg.loc[raw_emg[sync] == 1].index.tolist()
-
-    # Ascertain length of recordings from videos
-    video_lengths = {}
-
-    # If video path is not valid
-    if not os.path.isdir(video_path):
-        print(f"{video_path} is not a valid directory.")
-        return
-
-    for filename in os.listdir(video_path):
-        #
-        if filename.endswith(".avi"):
-            file_path = os.path.join(video_path, filename)
-            video_name = Path(file_path).stem
-            video_number = video_name.replace(f"{rec_name}_0000", "")
-            video_number = int(video_number)
-
-            # Creating Video Capture object
-            video = cv2.VideoCapture(file_path)
-
-            # Count number of frames
-            frames = video.get(cv2.CAP_PROP_FRAME_COUNT)
-            fps = video.get(cv2.CAP_PROP_FPS)
-
-            # calculate duration of the video
-            seconds = frames / fps
-            video_lengths.update({video_number: seconds})
-
-            # print(f"Video {video_number} is {seconds} long")
-
-    for i in range(len(video_lengths.keys())):
-        # Getting timing for given recording
-        recording_end = round(sync_occurences[i], 3)
-        recording_begin = round(recording_end - video_lengths[i], 3)
-        print(f"Video {i} begins at {recording_begin} and ends at {recording_end}")
-        # Selecting region from raw trace and saving as csv
-        seg_recording = raw_emg[recording_begin:recording_end]
-        seg_recording.to_csv(f"{video_path}/{video_name}-{i}-emg.csv")
-
-    segmented_recording = sync_occurences
-
-    return segmented_recording
 
 
 def nnmf_factorize(A, k):
@@ -177,16 +104,24 @@ def syn_sel(norm_emg):
 
 def synergy_extraction(data_input, synergy_selection):
     """Synergy Extraction from factorized matricies
-    @param data_input: path to csv data file
-    @param synergy_selection:
 
-    @return W: motor primitives
-    @return H: motor modules
+    Parameters
+    ----------
+    data_input: pandas.core.frame.Dataframe
+        input containing normalized EMG channels
+    chosen_synergies: int
+        selected synergies to use
+
+    Returns
+    -------
+    W: numpy.ndarray
+        motor primitives array
+    H: numpy.ndarray
+        motor modules
     """
 
     # Load Data
-    data = pd.read_csv(data_input, header=0)
-    A = data.to_numpy()
+    A = data_input.to_numpy()
 
     # Choosing best number of components
     chosen_synergies = synergy_selection
@@ -516,7 +451,6 @@ def show_modules(data_input, chosen_synergies, modules_filename="./output.png"):
 
 def show_synergies(
     data_input,
-    refined_primitives,
     chosen_synergies,
     channel_order=["GM", "Ip", "BF", "VL", "St", "TA", "Gs", "Gr"],
     synergies_name="./output.png",
@@ -524,14 +458,22 @@ def show_synergies(
     """
     Make sure you check the channel order!!
 
+    Parameters
+    ----------
+    data_input: pandas.core.frame.Dataframe
+        input containing normalized EMG channels
+    chosen_synergies: int
+        selected synergies to use
+    channel_order: list
+        the order that the channels show up in the recording file
+
+
     """
 
-    motor_p_data = pd.read_csv(refined_primitives, header=0)
     # =======================================
     # Presenting Data as a mutliplot figure |
     # =======================================
     motor_primitives, motor_modules = synergy_extraction(data_input, chosen_synergies)
-    motor_primitives = motor_p_data.to_numpy()
 
     # fwhm_line = fwhm(motor_primitives, chosen_synergies)
     trace_length = 200
@@ -564,8 +506,9 @@ def show_synergies(
         primitive_trace /= number_cycles
 
         # Plot the average trace in the corresponding subplot
+        smooth_sample = signal.savgol_filter(samples[samples_binned], 40, 3)
         axs[col, 1].plot(
-            samples[samples_binned], primitive_trace, color="red", label="Average Trace"
+            smooth_sample, primitive_trace, color="red", label="Average Trace"
         )
         axs[col, 1].set_title("Synergy {}".format(col + 1))
 
@@ -576,9 +519,10 @@ def show_synergies(
                 i * trace_length : (i + 1) * trace_length, col
             ]
 
+            smooth_sample = signal.savgol_filter(samples[samples_binned], 40, 3)
             # Plot the bin data
             axs[col, 1].plot(
-                samples[samples_binned],
+                smooth_sample,
                 time_point_average,
                 label="Bin {}".format(i + 1),
                 color="black",
@@ -616,6 +560,14 @@ def show_synergies(
         axs[col, 1].set_yticks([])
         axs[col, 1].set_xlabel("")
         axs[col, 1].set_ylabel("")
+
+        # Label gait cycle on primitive plots
+        axs[col, 1].text(
+            50, -0.2 * np.max(primitive_trace), "Swing", ha="center", va="center"
+        )
+        axs[col, 1].text(
+            150, -0.2 * np.max(primitive_trace), "Stance", ha="center", va="center"
+        )
 
         # Remove x and y axis labels and ticks from the motor module subplot
         axs[col, 0].set_xticks(x_values, channel_order)

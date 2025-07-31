@@ -1,6 +1,6 @@
 [project]
 name="kinsynpy"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 version="0.1"
 description = "Some functions for kinematics and EMG analysis"
 authors=[
