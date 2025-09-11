@@ -125,8 +125,9 @@ def show_synergies(
         # Calculate the average by dividing the accumulated values by the number of bins
         primitive_trace /= number_cycles
 
+
         # Plot the average trace in the corresponding subplot
-        smooth_sample = signal.savgol_filter(samples[samples_binned], 40, 3)
+        smooth_sample = signal.savgol_filter(samples[samples_binned], window_length=50, polyorder=3)
         axs[col, 1].plot(
             smooth_sample, primitive_trace, color="red", label="Average Trace"
         )
@@ -180,7 +181,8 @@ def show_synergies(
         axs[col, 1].set_yticks([])
         axs[col, 1].set_xlabel("")
         axs[col, 1].set_ylabel("")
-        axs[col, 1].set_ylim(np.max(smooth_sample))
+        axs[col, 1].set_ylim(np.min(primitive_trace), np.max(primitive_trace))
+
         axs[col, 1].text(
             50, -0.2 * np.max(primitive_trace), "Swing", ha="center", va="center"
         )

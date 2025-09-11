@@ -160,7 +160,7 @@ def frame_to_time(frame_index, fps=500):
 
     """
 
-    # Convert to miliseconds
+    # Convert to milliseconds
     frame_mili = (frame_index / fps) * 1000
     # Convert to seconds
     time_seconds = frame_mili / 1000
@@ -519,7 +519,6 @@ def hip_height(toey_values, hipy_values, manual=False):
 
     # Either manually mark regions foot is on the ground or go with proxy
     if manual is False:
-
         # Getting lower quartile value of toey as proxy for the ground
         toey_lowerq = np.percentile(toey_values, q=25)
         average_hip_value = np.mean(hipy_values)
@@ -672,13 +671,11 @@ def cop(fl_x, hl_x, fl_y, hl_y, calc_ds=True, manual_analysis=False):
     cop = np.full(len(avg_y_cord), np.nan)
 
     if calc_ds is True:
-
         ds_begin, ds_end = double_support(
             fl_x=fl_x, hl_x=hl_x, manual_analysis=manual_analysis
         )
 
         for i in range(len(ds_begin)):
-
             # Get a given double support phases avg y value
             current_region = avg_y_cord[ds_begin[i] : ds_end[i]]
 
@@ -729,13 +726,13 @@ def step_width_est(
     Parameters
     ----------
     rl_x:
-        x cordinate of right limb
+        x coordinate of right limb
     ll_x:
-        x cordinate of left limb
+        x coordinate of left limb
     rl_y:
-        y cordinate of right limb
+        y coordinate of right limb
     ll_y:
-        y cordinate of left limb
+        y coordinate of left limb
 
     Returns
     -------
@@ -1033,9 +1030,8 @@ def xcom_flux(xcom, width_threshold=40):
 
     difs = np.array([])
 
-    for peak, trough in zip(xcom_peaks, xcom_troughs):
-
-        wave_dif = np.abs(xcom[peak] - xcom[trough])
+    for peak, through in zip(xcom_peaks, xcom_troughs):
+        wave_dif = np.abs(xcom[peak] - xcom[through])
         difs = np.append(difs, wave_dif)
 
     avg_flux = np.mean(difs)
@@ -1048,7 +1044,7 @@ def limb_measurements(
     skeleton_list,
     calibration,
     save_as_csv=False,
-    csv_filename="./tmp-limb_measurmets.csv",
+    csv_filename="./tmp-limb_measurements.csv",
 ):
     """Estimates lengths of limbs coordinates based on skeleton reconstruction
 
@@ -1060,6 +1056,9 @@ def limb_measurements(
         list of components in skeleton to look for in dataframe
     calibration:
         calibration factor calculated from recording itself
+    save_as_csv: boolean, default=`False`
+        whether to save the calculated measurements
+    csv_filename: str, default=`"./tmp-limb_measurements.csv"`
 
     Returns
     -------
@@ -1086,7 +1085,6 @@ def limb_measurements(
 
 # TODO: Finish double support function
 def main():
-
     # NOTE: Very important this is checked before running
     video = "00"
     mouse_number = 2

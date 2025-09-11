@@ -16,6 +16,7 @@ email (Work): kenzie.mackinnon@dal.ca
 # %%
 
 import os
+
 # from scipy.interpolate import InterpolatedUnivariateSpline
 from pathlib import Path
 
@@ -48,12 +49,22 @@ def read_all_csv(directory_path):
 
 def nnmf_factorize(A, k):
     """Non-Negative Matrix Factorization for Muscle Synergy Extraction
-    @param A: input matrix
-    @param k: number of components (muscle channels)
 
-    @return W: motor primitives
-    @return H: motor modules
-    @return C: factorized matrix
+    Parameters
+    ----------
+    A: numpy.ndarray
+        input matrix
+    k: int
+        number of components (muscle channels)
+
+    Returns
+    -------
+    W: numpy.ndarray
+        motor primitives
+    H: numpy.ndarray
+        motor modules
+    C: numpy.ndarray
+        factorized matrix
     """
     nmf = NMF(n_components=k, init="random", random_state=0)
     W = nmf.fit_transform(A)
@@ -103,7 +114,7 @@ def syn_sel(norm_emg):
 
 
 def synergy_extraction(data_input, synergy_selection):
-    """Synergy Extraction from factorized matricies
+    """Synergy Extraction from factorized matrices
 
     Parameters
     ----------
@@ -134,7 +145,7 @@ def synergy_extraction(data_input, synergy_selection):
 
 
 def full_width_half_abs_min(motor_p_full, synergy_selection):
-    """Full width half maxiumum calculation
+    """Full width half maximum calculation
     @param: motor_p_full_full: full length numpy array of selected motor
     primitives
 
@@ -188,7 +199,7 @@ def full_width_half_abs_min(motor_p_full, synergy_selection):
             ) / 2
 
         # largest_index = np.argmax(arr[np.logical_and(arr > 2, arr < 8)])
-        # Getting the closest indicies on either side of the max closest to half width
+        # Getting the closest indices on either side of the max closest to half width
         # half_width_start = np.argmax(mcurrent_primitive[::max_ind] > half_width_height)
         # half_width_end = np.argmax(mcurrent_primitive[:max_ind] > half_width_height)
         # half_width_height = (max_ind - abs_min_ind) / 2
@@ -232,7 +243,7 @@ def full_width_half_abs_min(motor_p_full, synergy_selection):
 
 
 def full_width_half_abs_min_scipy(motor_p_full, synergy_selection):
-    """Full width half maxiumum calculation
+    """Full width half maximum calculation
     @param: motor_p_full_full: full length numpy array of selected motor
     primitives
 
@@ -270,7 +281,7 @@ def full_width_half_abs_min_scipy(motor_p_full, synergy_selection):
 
 
 def fwhm(motor_p_full, synergy_selection):
-    """full width half maxiumum calculation
+    """full width half maximum calculation
     @param: motor_p_full: full length numpy array of selected motor
     primitives
 
@@ -308,7 +319,7 @@ def fwhm(motor_p_full, synergy_selection):
         fwhm_index.append(count_above)
         fwhm = np.append(fwhm, [len(count_above[0])])
 
-    # fwhm = np.asarray(fwhm)
+    fwhm = np.asarray(fwhm)
 
     return fwhm
 
@@ -371,7 +382,6 @@ def coa(refined_primitives, synergy_selection):
 
 
 def interp(motor_input):
-
     # Getting slope of values
     original_motor = motor_input
 
@@ -382,9 +392,9 @@ def interp(motor_input):
     ynew = rbf(xnew)
 
     fig, axs = plt.subplots(2, 1, layout="constrained")
-    axs[0].set_title("Orignal motor input")
+    axs[0].set_title("Original motor input")
     axs[0].plot(x_axis_motor, original_motor)
-    axs[1].set_title("Radial basis funtion interpolation of Motor input")
+    axs[1].set_title("Radial basis function interpolation of Motor input")
     axs[1].plot(xnew, ynew)
 
     plt.show()
@@ -608,7 +618,6 @@ def show_modules_dtr(data_input, chosen_synergies, modules_filename="./output.pn
     # number_cycles = len(motor_primitives) // 200
 
     for col in range(chosen_synergies):
-
         # Begin Presenting Motor Modules
 
         # Get the data for the current column
@@ -969,7 +978,6 @@ def sel_primitive_trace(
 
 
 def main():
-
     # raw_file = pd.read_csv("../../data/emg/")
 
     raw_file = pd.read_csv("../../data/emg/com-7-egr3-full.txt", header=0)
