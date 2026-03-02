@@ -7,21 +7,45 @@ import numpy as np
 import pandas as pd
 
 
+def column_index(df, query_cols):
+    """Gets the numerical index of a column in a Dataframe
+
+    Parameters
+    ----------
+    df:
+        Dataframe
+
+    query_cols: list
+        List of columns you want to find the index for
+
+    Returns
+    -------
+
+    col_ind: int
+        The index for each of the given columns
+
+    """
+    cols = df.columns.values
+    sidx = np.argsort(cols)
+    col_ind = sidx[np.searchsorted(cols, query_cols, sorter=sidx)]
+    return col_ind
+
+
 def create_dirs(path):
     if not os.path.exists(path):
         os.makedirs(path)
-        print(f"Output directories creaeted at {path}")
+        print(f"Output directories created at {path}")
+
 
 def folder_selector():
-
     root = Tk()
     root.withdraw()
     analysis_path = filedialog.askdirectory()
 
     return analysis_path
 
-def get_video_info(video_path, rec_name):
 
+def get_video_info(video_path, rec_name):
     # Ascertain length of recordings from videos
     video_lengths = {}
 
@@ -52,6 +76,7 @@ def get_video_info(video_path, rec_name):
             # print(f"Video {video_number} is {seconds} long")
 
     return video_lengths
+
 
 def seg_raw_emg(raw_emg, emg_ch, sync, video_path, rec_name):
     """Splices out individual recordings EMG data"""
@@ -103,4 +128,3 @@ def seg_raw_emg(raw_emg, emg_ch, sync, video_path, rec_name):
     segmented_recording = sync_occurences
 
     return segmented_recording
-

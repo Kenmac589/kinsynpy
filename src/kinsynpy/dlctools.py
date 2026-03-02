@@ -594,7 +594,7 @@ def double_support(fl_x, hl_x, manual_analysis=False, filt_window=40):
         hindlimb x coordinate
     manual_analysis:
         Will allow for manual annotation of traces to pick phases.
-    filt_window:
+    filt_window: int, default=`40`
         Smoothening factor for traces.
 
     Returns
@@ -1083,6 +1083,47 @@ def limb_measurements(
     return calibrated_measurments
 
 
+def step_amp(
+    toe_x: np.array,
+    hip_x: np.array,
+    toe_y: np.array,
+    hip_y: np.array,
+    manual_peaks=False,
+    width_threshold=40,
+) -> np.array:
+    """Step width during step cycle
+
+    Parameters
+    ----------
+    toe_x:
+        x coordinate of right limb
+    hip_x:
+        x coordinate of left limb
+    toe_y:
+        y coordinate of right limb
+    hip_y:
+        y coordinate of left limb
+
+    Returns
+    -------
+    : np.ndarray
+        numpy array of step width values for each step cycle
+    """
+
+    toe_swon, toe_swoff = swing_estimation(toe_x)
+
+    # Getting X cords of toe and hip at onset and offset
+    toe_swon_x = toe_x[toe_swon]
+    hip_swon_x = hip_x[toe_swon]
+
+    print(toe_swon_x)
+    print(hip_swon_x)
+
+    step_ap = toe_swon
+
+    return step_ap
+
+
 # TODO: Finish double support function
 def main():
     # NOTE: Very important this is checked before running
@@ -1091,7 +1132,7 @@ def main():
     manual_analysis = False
     save_auto = False
     select_region = False
-    show_plots = True
+    show_plots = False
 
     # phrase = "In EMG-test folder"
     # func_test = kst.edit_test(phrase)
@@ -1151,6 +1192,7 @@ def main():
     # Grabbing marker data
     toex_np = mark_process(df, scorer, "toe", "x", calib_factor)
     toey_np = mark_process(df, scorer, "toe", "y", calib_factor)
+    hipx_np = mark_process(df, scorer, "hip", "x", calib_factor)
     hipy_np = mark_process(df, scorer, "hip", "y", calib_factor)
     comy_np = mark_process(df, scorer, "mirror_com", "y", calib_factor)
     rfly_np = mark_process(df, scorer, "mirror_rfl", "y", calib_factor)
@@ -1168,6 +1210,7 @@ def main():
         reg_start, reg_stop = analysis_reg_sel(mirror_y=miry_np, com_y=comy_np)
         toex_np = toex_np[reg_start:reg_stop]
         toey_np = toey_np[reg_start:reg_stop]
+        hipx_np = hipx_np[reg_start:reg_stop]
         hipy_np = hipy_np[reg_start:reg_stop]
         comy_np = comy_np[reg_start:reg_stop]
         rfly_np = rfly_np[reg_start:reg_stop]
@@ -1210,6 +1253,11 @@ def main():
     lhl_swon, lhl_swoff = swing_estimation(foot_cord=lhlx_np)
     fl_step = step_width_est(rl_x=rflx_np, ll_x=lflx_np, rl_y=rfly_np, ll_y=lfly_np)
     hl_step = step_width_est(rl_x=rhlx_np, ll_x=lhlx_np, rl_y=rhly_np, ll_y=lhly_np)
+
+    # Step Cycle information
+    step_amplitude = step_amp(toex_np, hipx_np, toey_np, hipy_np)
+
+    print(step_amplitude)
 
     # Some of my default plotting parameters I like
     custom_params = {"axes.spines.right": False, "axes.spines.top": False}
@@ -1274,7 +1322,7 @@ def main():
         print("Kinematic results saved")
     elif manual_analysis is False and save_auto is False and show_plots is True:
         print("Kinematic results not saved")
-        plt.show()
+        plt.show(block=show_plots)
     else:
         print("Kinematic results not saved")
 
@@ -1367,7 +1415,7 @@ def main():
         print("Mos results saved!")
     elif manual_analysis is False and save_auto is False and show_plots is True:
         print("Mos results not saved")
-        plt.show()
+        plt.show(block=show_plots)
     else:
         print("Mos results not saved")
 

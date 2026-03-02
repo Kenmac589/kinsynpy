@@ -85,7 +85,7 @@ def step_duration(input_dataframe, swonset_ch):
     adjusted_treadmill_speeds = treadmill_speed_array[combined_filter]
     adj_time_xaxis = np.arange(0, len(adjusted_time_differences))
 
-    # Finding average step cylce for this length
+    # Finding average step cycle for this length
     average_step_difference = np.mean(adjusted_time_differences)
     print(f" Average step cycle duration for this trial: {average_step_difference}")
 
@@ -343,41 +343,6 @@ def weighted_slope(input_dataframe, p, comy="37 CoMy (cm)"):
     return slope
 
 
-def median_filter(arr, k):
-    """
-
-    Parameters
-    ----------
-    arr:
-        input numpy array
-    k:
-        is the size of the window you want to slide over the array (kernel).
-
-    Returns
-    -------
-    filtarr:
-        An array of the same length where each element is the median of
-        a window centered around the index in the array.
-    """
-    # Initialize output array
-    result = []
-
-    # Iterate over every index in arr
-    for i in range(len(arr)):
-        if i < (k // 2) or i > len(arr) - (k // 2) - 1:
-            # Add a placeholder for the indices before k//2 and after length of array - k//2 - 1
-            result.append(np.nan)
-        else:
-            # Calculate median within window and append to result list
-            result.append(np.median(arr[i - (k // 2) : i + (k // 2) + 1]))
-
-    filter = np.isnan(comy_values)
-    filtarr = np.asarray(result)
-    filtarr = filtarr[~filter]
-
-    return filtarr
-
-
 def spike_slope(comy, p):
     """
 
@@ -437,7 +402,6 @@ def fir_filter(data, taps):
 
 # TODO: Need visit documentation to understand how to get slope same as spike2
 def slope(input_dataframe, time_constant, comy="37 CoMy (cm)"):
-
     # Converting time constant to meaningful indices
     time_factor = int(time_constant / 2)
 
@@ -638,7 +602,6 @@ def hip_height(
 
     # Either manually mark regions foot is on the ground or go with proxy
     if manual is False:
-
         # Getting lower quartile value of toey as proxy for the ground
         toey_cutoff = np.percentile(toey_values, q=75)
         toey_values[toey_values > toey_cutoff] = np.nan
@@ -681,7 +644,7 @@ def hip_height(
         # Calculate hip height from filtered regions
         average_hip_value = np.mean(hip_to_consider)
         average_toe_value = np.mean(toe_to_consider)
-        hip_height = average_hip_value - average_toe_value
+        hip_height = hip_to_consider - toe_to_consider
 
     else:
         print("The `manual` variable must be a boolean")
@@ -707,7 +670,6 @@ def froud_number(
 
 # NOTE: Depending on completion of `spike_slope`
 def xcom(input_dataframe, hip_height, comy="37 CoMy (cm)"):
-
     # Bring in data
     comy_values = input_dataframe[comy].values
     comy_values = comy_values[np.logical_not(np.isnan(comy_values))]
@@ -735,7 +697,7 @@ def xcom(input_dataframe, hip_height, comy="37 CoMy (cm)"):
     # axs[0].plot(x_axis, comy_values)
     # axs[1].set_title("vCoM")
     # axs[1].plot(x_axis, vcom)
-    # axs[2].set_title("Radial basis funtion interpolation of vCoM")
+    # axs[2].set_title("Radial basis function interpolation of vCoM")
     # axs[2].plot(xnew, ynew)
     # axs[0].plot(x_axis, xcom)
 
@@ -834,7 +796,6 @@ def double_support_est(
 def mos(
     xcom, leftcop, rightcop, leftds, rightds, manual_peaks=False, width_threshold=40
 ):
-
     # Remove periods where it is not present or not valid
     # left_band = np.percentile(xcom, q=50)
     rightcop = np.where(rightcop == 0.0, np.nan, rightcop)
@@ -889,7 +850,6 @@ def mos(
 
 
 def cycle_period_summary(directory_path):
-
     trial_list = read_all_csv(directory_path)
 
     cycle_results = {}

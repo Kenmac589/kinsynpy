@@ -20,10 +20,12 @@ import os
 # from scipy.interpolate import InterpolatedUnivariateSpline
 from pathlib import Path
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy as sp
+import seaborn as sns
 from scipy import signal
 from sklearn.decomposition import NMF
 
@@ -73,7 +75,7 @@ def nnmf_factorize(A, k):
     return W, H, C
 
 
-def syn_sel(norm_emg):
+def syn_sel(norm_emg, auto_select=True, input_selection=False):
     """Automatically selects synergies to use based on 95% rule
     Parameters
     ----------
@@ -82,10 +84,13 @@ def syn_sel(norm_emg):
 
     Returns
     -------
+    out: matplotlib.figure
+        returns the figure for the synergy selection
     syn_selection: int
         The amount of synergies to use for Non-Negative matrix factorization
 
     """
+
     A = norm_emg.to_numpy()
 
     # Defining set of components to use
@@ -97,20 +102,59 @@ def syn_sel(norm_emg):
         R2All[i] = np.corrcoef(C.flatten(), A.flatten())[0, 1] ** 2
         print("$R^2$ =", i + 2, ":", R2All[i])
 
-    i = 2
-    syn_selection = i
-    while R2All[i] < 0.95:
-        syn_selection = i
-        i = i + 1
+    # Calculating Number of synergies to use
+    if auto_select is True:
+        percent_cutoff = 0.95
+        counter = 0
+        current_val = 0
+        while current_val < percent_cutoff:
+            current_val = R2All[counter]
+            counter = counter + 1
 
-    # corrcoef = np.zeros(len(num_components))
-    # for i in range(len(R2All)):
-    #     corrcoef[i] = np.corrcoef(num_components[0 : i + 2], R2All[0 : i + 2])[0, 1]
-    #     print("r =", i + 2, ":", corrcoef[i])
+        syn_selection = counter + 1
+    else:
+        syn_selection = R2All[0]
 
-    # syn_selection = R2All[0]
+    corrcoef = np.zeros(len(num_components))
+    for i in range(len(R2All)):
+        corrcoef[i] = np.corrcoef(num_components[0 : i + 2], R2All[0 : i + 2])[0, 1]
+        # print("r =", i + 2, ":", corrcoef[i])
 
-    return syn_selection
+    # Plotting Both Methods for determining number of components
+    custom_params = {"axes.spines.right": False, "axes.spines.top": False}
+    sns.set(style="white", font_scale=1.3, rc=custom_params)
+    plt.style.use("~/sync/lab-analysis/configs/default_plot.mplstyle")
+    fig, axs = plt.subplots(2)
+
+    axs[0].set_title("Synergy Selection by Percentage")
+    axs[0].plot(num_components, R2All)
+    axs[0].axhline(y=0.95, color="r", linestyle="-", label="95%")
+    axs[0].set_xlabel("Number of Components")
+    axs[0].set_ylabel("$R^2$ of $C^x$ fit to original matrix")
+
+    axs[1].set_title("Synergy Selection by Linearity")
+    axs[1].scatter(num_components, corrcoef)
+    axs[1].set_xlabel("Number of Components")
+    axs[1].set_ylabel("Correlation Coefficient")
+
+    # # Plotting Both Methods overlapping
+    # plt.plot(num_components, R2All)
+    # plt.axhline(y=0.95, color="r", linestyle="-")
+    # plt.xlabel("Number of Components")
+    # plt.ylabel("$R^2$ of $C^x$ fit to original matrix")
+    # plt.title("Muscle Synergy Determinance by Percentage")
+    # plt.scatter(num_components, corrcoef)
+    # plt.title("Muscle Synergy Determinance by Linearity and $R^2$")
+    # plt.show()
+
+    if input_selection is True:
+        plt.show()
+        syn_selection = int(input("How many components will be used?: "))
+
+    else:
+        out = fig.get_figure()
+
+    return out, syn_selection
 
 
 def synergy_extraction(data_input, synergy_selection):
@@ -280,7 +324,60 @@ def full_width_half_abs_min_scipy(motor_p_full, synergy_selection):
     return fwhl
 
 
-def fwhm(motor_p_full, synergy_selection):
+def fwhm_calc(motor_p_sel, cycle_constant=200):
+    """full width half maximum calculation
+
+    Parameters
+    ----------
+    motor_p_sel: numpy.ndarray
+        full length numpy array of selected motor primitives
+
+    Returns
+    -------
+    fwhm:
+        Mean value for the width of the primitives
+    """
+
+    # Save
+    fwhm = np.array([])
+    fwhm_index = [[]]
+
+    prim_sweep_count = int(motor_p_sel.size / cycle_constant)
+
+    # reshaping primitive into
+    motor_p_split = motor_p_sel.reshape(prim_sweep_count, cycle_constant)
+
+    avg_trace = np.empty(cycle_constant)
+    avg_trace_std = np.empty(cycle_constant)
+    for i in range(cycle_constant):
+        time_avg = np.mean(motor_p_split[:, i])
+        time_avg_std = np.std(motor_p_split[:, i])
+        avg_trace[i] = time_avg
+        avg_trace_std[i] = time_avg_std
+
+    for i in range(prim_sweep_count):
+        current_cycle = motor_p_split[i]
+
+        abs_min_ind = np.argmin(current_cycle)
+
+        # Getting maximum value
+        max_ind = np.argmax(current_cycle)
+
+        # Getting half-width height
+        half_width_height = (current_cycle[max_ind] - current_cycle[abs_min_ind]) * 0.5
+
+        # Getting all values along curve that fall below half width height
+        count_above = np.nonzero(current_cycle > half_width_height)
+
+        fwhm_index.append(count_above)
+        fwhm = np.append(fwhm, [len(count_above[0])])
+
+    fwhm = np.asarray(fwhm)
+
+    return fwhm
+
+
+def _fwhm_calc(motor_p_full, synergy_selection):
     """full width half maximum calculation
     @param: motor_p_full: full length numpy array of selected motor
     primitives
@@ -324,80 +421,44 @@ def fwhm(motor_p_full, synergy_selection):
     return fwhm
 
 
-def coa(refined_primitives, synergy_selection):
-    """Center of Activiy
-    @param refined_primitives: motor primitives
-    @param synergy_selection: Selected muscle synergy
+def coa(motor_p_sel, cycle_constant=200):
+    """Center of Activity
 
-    @return coa: array of center activities for the step cycles in the trial
+    Parameters
+    ----------
+    motor_p: numpy.ndarray
+        factorized array from arrays
+    chosen_synergies: Selected muscle synergy
+
+    Returns
+    -------
+    coa_values: numpy.ndarray
+        array of center activities for the step cycles in the trial
     """
 
-    motor_p_data = pd.read_csv(refined_primitives, header=0)
-    motor_p_full = motor_p_data.to_numpy()
-
     # Make selection of synergy and bin primitives by step cycle
-    selected_primitive = motor_p_full[:, synergy_selection - 1]
-    binned_primitives = np.split(selected_primitive, len(selected_primitive) // 200)
+    prim_sweep_count = int(motor_p_sel.size / cycle_constant)
+    binned_primitives = motor_p_sel.reshape(prim_sweep_count, cycle_constant)
 
-    # Save
-    # co_act_array = np.array([])
-
+    coa_values = np.empty(len(binned_primitives))
     for i in range(len(binned_primitives)):
-        a_martix = np.array([])
-        b_martix = np.array([])
+        current_step = binned_primitives[i]
 
-        # Get values for current cycle
-        current_cycle = binned_primitives[i]
-        points = current_cycle.size
+        alpha = np.linspace(0, 2 * np.pi, len(current_step))
 
-        for pp in range(points):
-            alpha = 360 * (pp - 1) / (points - 1) * np.pi / 180
-            vector = current_cycle[pp]
-            a_value = vector * np.cos(alpha)
-            b_value = vector * np.sin(alpha)
-            np.append(a_martix, pp, a_value)
-            np.append(b_martix, pp, b_value)
+        a_matrix = np.sum(current_step * np.cos(alpha))
+        b_matrix = np.sum(current_step * np.sin(alpha))
 
-        a_sum = np.sum(a_martix)
-        b_sum = np.sum(b_martix)
+        coa_t = np.atan2(b_matrix, a_matrix) * 180 / np.pi
 
-        coa_cycle = np.arctan(b_sum / a_sum) * 180 / np.pi
+        # Negative degree filter
+        is_neg = coa_t < 0
+        coa_t = np.where(is_neg, coa_t + 360, coa_t)
 
-        # to maintain signage
-        if a_sum > 0 and b_sum > 0:
-            coa_cycle = coa_cycle
-        elif a_sum < 0 and b_sum > 0:
-            coa_cycle = coa_cycle + 180
-        elif a_sum < 0 and b_sum < 0:
-            coa_cycle = coa_cycle + 180
-        elif a_sum > 0 and b_sum < 0:
-            coa_cycle = coa_cycle + 360
+        coa_val = coa_t * len(current_step) / 360
+        coa_values[i] = coa_val
 
-        # Appending to list of center of activities
-        coa_cycle = coa_cycle * points / 360
-        # co_act_array = np.append(co_act_array, coa_cycle)
-
-    # Retuning center of activity values
-    # return co_act_array
-
-
-def interp(motor_input):
-    # Getting slope of values
-    original_motor = motor_input
-
-    x_axis_motor = np.arange(len(original_motor))
-
-    rbf = sp.interpolate.Rbf(x_axis_motor, original_motor, function="cubic", smooth=3)
-    xnew = np.linspace(x_axis_motor.min(), x_axis_motor.max(), num=100, endpoint=True)
-    ynew = rbf(xnew)
-
-    fig, axs = plt.subplots(2, 1, layout="constrained")
-    axs[0].set_title("Original motor input")
-    axs[0].plot(x_axis_motor, original_motor)
-    axs[1].set_title("Radial basis function interpolation of Motor input")
-    axs[1].plot(xnew, ynew)
-
-    plt.show()
+    return coa_values
 
 
 def show_modules(data_input, chosen_synergies, modules_filename="./output.png"):
@@ -459,11 +520,12 @@ def show_modules(data_input, chosen_synergies, modules_filename="./output.png"):
     plt.show()
 
 
-def show_synergies(
+def _show_synergies(
     data_input,
     chosen_synergies,
     channel_order=["GM", "Ip", "BF", "VL", "St", "TA", "Gs", "Gr"],
     synergies_name="./output.png",
+    cycle_length=200,
 ):
     """
     Make sure you check the channel order!!
@@ -486,27 +548,27 @@ def show_synergies(
     motor_primitives, motor_modules = synergy_extraction(data_input, chosen_synergies)
 
     # fwhm_line = fwhm(motor_primitives, chosen_synergies)
-    trace_length = 200
+    cycle_length = 200
 
     samples = np.arange(0, len(motor_primitives))
-    samples_binned = np.arange(trace_length)
+    samples_binned = np.arange(cycle_length)
 
     fig, axs = plt.subplots(chosen_synergies, 2, figsize=(12, 8))
     # Calculate the average trace for each column
     number_cycles = (
-        len(motor_primitives) // trace_length
+        len(motor_primitives) // cycle_length
     )  # Calculate the number of 200-value bins
 
     for col in range(chosen_synergies):
         primitive_trace = np.zeros(
-            trace_length
+            cycle_length
         )  # Initialize an array for accumulating the trace values
 
         # Iterate over the binned data by the number of cycles
         for i in range(number_cycles):
             # Get the data for the current bin in the current column
             time_point_average = motor_primitives[
-                i * trace_length : (i + 1) * trace_length, col
+                i * cycle_length : (i + 1) * cycle_length, col
             ]
 
             # Accumulate the trace values
@@ -516,7 +578,9 @@ def show_synergies(
         primitive_trace /= number_cycles
 
         # Plot the average trace in the corresponding subplot
-        smooth_sample = signal.savgol_filter(samples[samples_binned], 40, 3)
+        smooth_sample = signal.savgol_filter(
+            samples[samples_binned], window_length=50, polyorder=3, mode="interp"
+        )
         axs[col, 1].plot(
             smooth_sample, primitive_trace, color="red", label="Average Trace"
         )
@@ -526,7 +590,7 @@ def show_synergies(
         for i in range(number_cycles):
             # Get the data for the current bin in the current 0, column
             time_point_average = motor_primitives[
-                i * trace_length : (i + 1) * trace_length, col
+                i * cycle_length : (i + 1) * cycle_length, col
             ]
 
             smooth_sample = signal.savgol_filter(samples[samples_binned], 40, 3)
@@ -570,13 +634,13 @@ def show_synergies(
         axs[col, 1].set_yticks([])
         axs[col, 1].set_xlabel("")
         axs[col, 1].set_ylabel("")
+        axs[col, 1].set_ylim(np.min(primitive_trace), np.max(primitive_trace))
 
-        # Label gait cycle on primitive plots
         axs[col, 1].text(
-            50, -0.2 * np.max(primitive_trace), "Swing", ha="center", va="center"
+            50, -0.3 * np.max(primitive_trace), "Swing", ha="center", va="center"
         )
         axs[col, 1].text(
-            150, -0.2 * np.max(primitive_trace), "Stance", ha="center", va="center"
+            150, -0.3 * np.max(primitive_trace), "Stance", ha="center", va="center"
         )
 
         # Remove x and y axis labels and ticks from the motor module subplot
@@ -594,6 +658,181 @@ def show_synergies(
 
     # Show all the plots
     # plt.show(block=True)
+
+
+def show_sel_primitive(motor_p, chosen_synergies, cycle_constant=200):
+    """Creates plot of motor primitive for selected synergy
+
+    Parameters
+    ----------
+    motor_p: numpy.ndarray
+        input containing normalized EMG channels
+    syn_selection: int
+        selected synergies to use
+    cycle_constant: int, default=`200`
+        how many samples per step cycle
+
+    Returns
+    -------
+    out: mpl.gcf
+        returns the plot in the event it is apart of figure
+
+    """
+
+    sel_motor_p = motor_p[:, chosen_synergies - 1]
+
+    # smoothen primitive trace
+    motor_p_smooth = sp.signal.savgol_filter(
+        x=sel_motor_p, window_length=50, polyorder=3, mode="interp"
+    )
+    # dividing into step cycle bins
+    prim_sweep_count = int(motor_p_smooth.size / cycle_constant)
+
+    # reshaping primitive into
+    motor_p_split = motor_p_smooth.reshape(prim_sweep_count, cycle_constant)
+
+    # Getting average from each trace at given time point as well as Standard dev
+    avg_trace = np.empty(cycle_constant)
+    avg_trace_std = np.empty(cycle_constant)
+    for i in range(cycle_constant):
+        time_avg = np.mean(motor_p_split[:, i])
+        time_avg_std = np.std(motor_p_split[:, i])
+        avg_trace[i] = time_avg
+        avg_trace_std[i] = time_avg_std
+
+    # Plotting individual step primitives in the background
+    for i in range(prim_sweep_count):
+        plt.plot(
+            motor_p_split[i], label="Bin {}".format(i + 1), color="black", alpha=0.1
+        )
+
+    plt.plot(avg_trace, color="red", label="Average Trace")
+    plt.ylim((np.min(avg_trace), np.max(avg_trace)))
+
+    step_cycle = ["Swing", "Stance"]
+    plt.axvline(x=cycle_constant / 2, color="black")
+    plt.xticks([cycle_constant * 0.25, cycle_constant * 0.75], step_cycle)
+
+    plt.yticks([np.min(avg_trace), np.max(avg_trace)], ["Min", "Max"])
+
+    out = mpl.pyplot.gcf()
+
+    return out
+
+
+def show_synergies(
+    data_input,
+    chosen_synergies,
+    channel_order=["GM", "Ip", "BF", "VL", "St", "TA", "Gs", "Gr"],
+    synergies_name="./output.png",
+    cycle_constant=200,
+    smooth_wind=50,
+):
+    """
+    Make sure you check the channel order!!
+
+    Parameters
+    ----------
+    data_input: pandas.core.frame.Dataframe
+        input containing normalized EMG channels
+    chosen_synergies: int
+        selected synergies to use
+    channel_order: list
+        the order that the channels show up in the recording file
+    smooth_wind: int
+        smoothing window size for savgol filter from scipy
+
+    Returns
+    -------
+    out: mpl.gcf
+        the current figure
+
+    """
+
+    # =======================================
+    # Presenting Data as a mutliplot figure |
+    # =======================================
+    motor_p, motor_m = synergy_extraction(data_input, chosen_synergies)
+
+    # Set plot
+    fig, axs = plt.subplots(chosen_synergies, 2, figsize=(12, 8))
+
+    for col in range(chosen_synergies):
+        sel_motor_p = motor_p[:, col]
+
+        motor_p_smooth = sp.signal.savgol_filter(
+            x=sel_motor_p, window_length=smooth_wind, polyorder=3, mode="interp"
+        )
+        # dividing into step cycle bins
+        prim_sweep_count = int(motor_p_smooth.size / cycle_constant)
+
+        # reshaping primitive into
+        motor_p_split = motor_p_smooth.reshape(prim_sweep_count, cycle_constant)
+
+        # Getting average from each trace at given time point as well as Standard dev
+        avg_trace = np.empty(cycle_constant)
+        avg_trace_std = np.empty(cycle_constant)
+        for i in range(cycle_constant):
+            time_avg = np.mean(motor_p_split[:, i])
+            time_avg_std = np.std(motor_p_split[:, i])
+            avg_trace[i] = time_avg
+            avg_trace_std[i] = time_avg_std
+
+        for i in range(prim_sweep_count):
+            axs[col, 1].plot(
+                motor_p_split[i], label="Bin {}".format(i + 1), color="black", alpha=0.1
+            )
+        # Plotting individual step primitives in the background
+        cycle_phases = ["Swing", "Stance"]
+
+        axs[col, 1].plot(avg_trace, color="red", label="Average Trace")
+
+        # Add vertical lines at the halfway point in each subplot
+        axs[col, 1].axvline(x=cycle_constant / 2, color="black")
+
+        # Begin Presenting Motor Modules
+
+        # Get the data for the current column
+        motor_module_column_data = motor_m[
+            col, :
+        ]  # Select all rows for the current column
+
+        # Set the x-axis values for the bar graph
+        x_values = np.arange(len(motor_module_column_data))
+
+        # Plot the bar graph for the current column in the corresponding subplot
+        axs[col, 0].bar(x_values, motor_module_column_data)
+
+        # Remove top and right spines of each subplot
+        axs[col, 1].spines["top"].set_visible(False)
+        axs[col, 1].spines["right"].set_visible(False)
+        axs[col, 0].spines["top"].set_visible(False)
+        axs[col, 0].spines["right"].set_visible(False)
+
+        # Remove labels on x and y axes
+        axs[col, 0].set_xticklabels([])
+        axs[col, 1].set_yticklabels([])
+
+        # Remove x and y axis labels and ticks from the avg_trace subplot
+        axs[col, 1].set_xticks(
+            [cycle_constant * 0.25, cycle_constant * 0.75], cycle_phases
+        )
+        axs[col, 1].set_yticks([np.min(avg_trace), np.max(avg_trace)], ["Min", "Max"])
+        axs[col, 1].set_xlabel("")
+        axs[col, 1].set_ylabel("")
+        axs[col, 1].set_ylim(np.min(avg_trace), np.max(avg_trace))
+
+        # Remove x and y axis labels and ticks from the motor module subplot
+        axs[col, 0].set_xticks(x_values, channel_order)
+        axs[col, 0].set_yticks([])
+
+    # Adjust spacing between subplots
+    fig.suptitle(synergies_name, fontsize=12, fontweight="bold")
+    plt.subplots_adjust(top=0.9)
+
+    out = fig.get_figure()
+
+    return out
 
 
 def show_modules_dtr(data_input, chosen_synergies, modules_filename="./output.png"):
@@ -785,7 +1024,7 @@ def sel_primitive_trace_with_fwhm(
 
     # Smoothen the data
 
-    fwhm_line = fwhm(motor_primitives, synergy_selection)
+    fwhm_line = fwhm_calc_dep(motor_primitives, synergy_selection)
 
     samples = np.arange(0, len(motor_primitives))
     samples_binned = np.arange(200)
@@ -984,6 +1223,8 @@ def main():
 
     raw_file_adjusted = raw_file.set_index("Time")
 
+    channel_order = ["GM", "Ip", "BF", "VL", "St", "TA", "Gs", "Gr"]
+    channel_order_dtr = ["GM", "Ip", "BF", "VL", "Gs", "TA", "St", "Gr"]
     # print(raw_file_adjusted["12 Synch"])
 
     sync_counts = raw_file_adjusted["12 Synch"].value_counts().items()
