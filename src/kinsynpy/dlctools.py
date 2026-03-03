@@ -1112,14 +1112,31 @@ def step_amp(
 
     toe_swon, toe_swoff = swing_estimation(toe_x)
 
+    # Starting with first swing onset
+    first_region = toe_swon[0]
+    toe_swoff = [x for x in toe_swoff if x > first_region]
+
     # Getting X cords of toe and hip at onset and offset
     toe_swon_x = toe_x[toe_swon]
     hip_swon_x = hip_x[toe_swon]
 
-    print(toe_swon_x)
-    print(hip_swon_x)
+    toe_swoff_x = toe_x[toe_swoff]
+    hip_swoff_x = hip_x[toe_swoff]
 
-    step_ap = toe_swon
+    if len(toe_swoff) >= len(toe_swon):
+        comparable_steps = toe_swon
+    else:
+        comparable_steps = toe_swoff
+
+    step_diffs = np.array([])
+    for i in range(len(comparable_steps)):
+        hip_swon_dif = toe_swon_x[i] - hip_swon_x[i]
+        hip_swoff_dif = toe_swoff_x[i] - hip_swoff_x[i]
+
+        full_diff = hip_swoff_dif - hip_swon_dif
+        step_diffs = np.append(step_diffs, full_diff)
+
+    step_ap = step_diffs
 
     return step_ap
 
@@ -1127,7 +1144,7 @@ def step_amp(
 # TODO: Finish double support function
 def main():
     # NOTE: Very important this is checked before running
-    video = "00"
+    video = "10"
     mouse_number = 2
     manual_analysis = False
     save_auto = False
@@ -1241,8 +1258,8 @@ def main():
     rds = double_support(rflx_np, rhlx_np, manual_analysis=False)
     lds = double_support(lflx_np, lhlx_np, manual_analysis=False)
 
-    print(f"Right double support test {rds}")
-    print(f"Left double support test {lds}")
+    # print(f"Right double support test {rds}")
+    # print(f"Left double support test {lds}")
 
     # Step cycle Estimation
     toe_swing_onset, toe_swing_offset = swing_estimation(toex_np)
@@ -1258,6 +1275,8 @@ def main():
     step_amplitude = step_amp(toex_np, hipx_np, toey_np, hipy_np)
 
     print(step_amplitude)
+
+    # print(step_amplitude)
 
     # Some of my default plotting parameters I like
     custom_params = {"axes.spines.right": False, "axes.spines.top": False}

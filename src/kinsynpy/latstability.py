@@ -877,17 +877,110 @@ def cycle_period_summary(directory_path):
     print(f"Data has been saved to {cycle_results_csv}")
 
 
+def step_amp(input_dataframe, swon, swoff, toex, toey, hipx, hipy):
+    """Get step amplitude
+
+    Parameters
+    ----------
+    input_dataframe:
+        spike file input as *.csv
+    swon:
+        spike channel with the swing onset event channel
+    swoff:
+        spike channel with the swing offset event channel
+    toex:
+        spike channel with x coordinate for the toe
+    toey:
+        spike channel with y coordinate for the toe
+    hipx:
+        spike channel with x coordinate for the hip
+    hipy:
+        spike channel with y coordinate for the hip
+
+    Returns
+    -------
+    step_diffs:
+        step amplitude for each step cycle (cm)
+
+    """
+
+    value_to_find = 1
+
+    # Grabbing out only relevant channels from spike export
+    input_dataframe_subset = input_dataframe.loc[
+        :, ["Time", swon, swoff, toex, toey, hipx, hipy]
+    ]
+    input_dataframe_subset = input_dataframe_subset.set_index("Time")
+
+    # Getting times for swing onset and swin
+    swon_marks = input_dataframe_subset.loc[
+        input_dataframe_subset[swon] == value_to_find
+    ].index.tolist()
+    swoff_marks = input_dataframe_subset.loc[
+        input_dataframe_subset[swoff] == value_to_find
+    ].index.tolist()
+
+    # Starting with first swing onset and filtering out possible prev swoff
+    first_region = swon_marks[0]
+    swoff_marks = [x for x in swoff_marks if x > first_region]
+
+    # Getting x values for channels at swing onset
+    toex_swon = input_dataframe_subset.loc[swon_marks, :][toex].values
+    hipx_swon = input_dataframe_subset.loc[swon_marks, :][hipx].values
+
+    # Getting x values for channels at swing offset
+    toex_swoff = input_dataframe_subset.loc[swoff_marks, :][toex].values
+    hipx_swoff = input_dataframe_subset.loc[swoff_marks, :][hipx].values
+
+    # Getting limit of compatible pairs of onsets and offsets
+    if len(swoff_marks) >= len(swon_marks):
+        comparable_steps = swon_marks
+    else:
+        comparable_steps = swoff_marks
+
+    step_diffs = np.array([])
+
+    # Getting difference for each step cycle
+    for i in range(len(comparable_steps)):
+        hip_swon_diff = toex_swon[i] - hipx_swon[i]
+        hip_swoff_diff = toex_swoff[i] - hipx_swoff[i]
+        step_diff = hip_swoff_diff - hip_swon_diff
+        step_diffs = np.append(step_diffs, step_diff)
+
+    return step_diffs
+
+
 # Main Code Body
 def main():
     # print("Currently no tests in main")
 
     # print("Step Width for M1 without Perturbation")
+    show_plots = True
+
+    swon_ch = "44 sw onset"
+    swoff_ch = "45 sw offset"
+    hipx_ch = "15 Hipx (cm)"
+    hipy_ch = "16 Hipy (cm)"
+    toex_ch = "23 toex (cm)"
+    toey_ch = "24 toey (cm)"
 
     wt1nondf = pd.read_csv("../../data/spike_exports/wt-1-non-all.txt")
     wt5nondf = pd.read_csv("../../data/spike_exports/wt-5-non-all.txt")
     # emg_testdf = pd.read_csv(
     #     "../../../lamisa_honours/lamisa_analysis/spike_exports/emg-test-4-pre-emg-non.txt"
     # )
+
+    step_amplitude = step_amp(
+        wt1nondf,
+        swon=swon_ch,
+        swoff=swoff_ch,
+        toex=toex_ch,
+        toey=toey_ch,
+        hipx=hipx_ch,
+        hipy=hipy_ch,
+    )
+
+    print(step_amplitude)
 
     # Getting stance duration for all 4 limbs
     lhl_st_lengths, lhl_st_timings = stance_duration(
@@ -1007,7 +1100,7 @@ def main():
     # axs[1].legend(mos_legend, bbox_to_anchor=(1, 0.7))
 
     plt.tight_layout()
-    plt.show()
+    plt.show(block=show_plots)
 
 
 if __name__ == "__main__":
