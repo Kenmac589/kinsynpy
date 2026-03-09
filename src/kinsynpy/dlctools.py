@@ -1083,11 +1083,69 @@ def limb_measurements(
     return calibrated_measurments
 
 
+def stance_duration(x_channel, width_threshold=40):
+    """Stance duration during step cycle
+
+    Parameters
+    ----------
+    x_channel:
+        x_channel to get onsets and offset from
+    width_threshold: int, default=`40`
+        The width cutoff used by `scipy.signal.find_peaks`
+
+    Returns
+    -------
+    stance_duration_lengths:
+        How long each stance duration is
+    stance_duration_timings:
+        List of timings where stance duration begins
+    """
+
+    toe_swon, toe_swoff = swing_estimation(x_channel, width_threshold=width_threshold)
+
+    print(f"SWOFF {toe_swoff}")
+    print(f"SWON {toe_swon}")
+
+    # Find the first stance phase to start tracking time duration
+    first_region = toe_swoff[0]
+    toe_swon = [x for x in toe_swon if x > first_region]
+    toe_swon = np.array(toe_swon)
+
+    print()
+    print(f"SWOFF {toe_swoff}")
+    print(f"SWON {toe_swon}")
+
+    time_conversion = np.vectorize(frame_to_time)
+    offset_timing = time_conversion(toe_swoff)
+    onset_timing = time_conversion(toe_swon)
+
+    if len(toe_swoff) >= len(toe_swon):
+        comparable_steps = toe_swon
+    else:
+        comparable_steps = toe_swoff
+
+    stance_durs = np.array([])
+    for i in range(len(comparable_steps)):
+        stan_dur = np.abs(onset_timing[i] - offset_timing[i])
+
+        stance_durs = np.append(stance_durs, stan_dur)
+
+    # Creating masks to filter any values above 1 as this would be between distinct recordings
+    recording_cutoff_high = 0.6
+    recording_cutoff_low = 0.000
+    cutoff_high = stance_durs <= recording_cutoff_high
+    cutoff_low = stance_durs >= recording_cutoff_low
+    combined_filter = np.logical_and(cutoff_low, cutoff_high)
+    # Applying the filter to the arrays
+    stance_durations = stance_durs[combined_filter]
+    print(np.mean(stance_durations))
+
+    return stance_durations
+
+
 def step_amp(
     toe_x: np.array,
     hip_x: np.array,
-    toe_y: np.array,
-    hip_y: np.array,
     manual_peaks=False,
     width_threshold=40,
 ) -> np.array:
@@ -1099,10 +1157,6 @@ def step_amp(
         x coordinate of right limb
     hip_x:
         x coordinate of left limb
-    toe_y:
-        y coordinate of right limb
-    hip_y:
-        y coordinate of left limb
 
     Returns
     -------
@@ -1128,17 +1182,15 @@ def step_amp(
     else:
         comparable_steps = toe_swoff
 
-    step_diffs = np.array([])
+    step_amps = np.array([])
     for i in range(len(comparable_steps)):
         hip_swon_dif = toe_swon_x[i] - hip_swon_x[i]
         hip_swoff_dif = toe_swoff_x[i] - hip_swoff_x[i]
 
         full_diff = hip_swoff_dif - hip_swon_dif
-        step_diffs = np.append(step_diffs, full_diff)
+        step_amps = np.append(step_amps, full_diff)
 
-    step_ap = step_diffs
-
-    return step_ap
+    return step_amps
 
 
 # TODO: Finish double support function
@@ -1149,7 +1201,9 @@ def main():
     manual_analysis = False
     save_auto = False
     select_region = False
-    show_plots = False
+    show_plots = True
+    show_cycles = True
+    show_mos = False
 
     # phrase = "In EMG-test folder"
     # func_test = kst.edit_test(phrase)
@@ -1272,9 +1326,10 @@ def main():
     hl_step = step_width_est(rl_x=rhlx_np, ll_x=lhlx_np, rl_y=rhly_np, ll_y=lhly_np)
 
     # Step Cycle information
-    step_amplitude = step_amp(toex_np, hipx_np, toey_np, hipy_np)
+    step_amplitude = step_amp(toex_np, hipx_np)
+    stance_d = stance_duration(toex_np)
 
-    print(step_amplitude)
+    # print(step_amplitude)
 
     # print(step_amplitude)
 
@@ -1321,10 +1376,10 @@ def main():
 
     # For plotting figure demonstrating how swing estimation was done
     axs[1].set_title("Swing Estimation")
-    axs[1].plot(toex_np)
-    axs[1].plot(toe_swing_offset, toex_np[toe_swing_offset], "^")
-    axs[1].plot(toe_swing_onset, toex_np[toe_swing_onset], "v")
-    axs[1].legend(swing_legend, loc="best")
+    axs[1].plot(time, toex_np)
+    axs[1].plot(time[toe_swing_offset], toex_np[toe_swing_offset], "^")
+    axs[1].plot(time[toe_swing_onset], toex_np[toe_swing_onset], "v")
+    # axs[1].legend(swing_legend, loc="best")
 
     # Saving Figure in same folder
     fig = mpl.pyplot.gcf()
@@ -1341,7 +1396,7 @@ def main():
         print("Kinematic results saved")
     elif manual_analysis is False and save_auto is False and show_plots is True:
         print("Kinematic results not saved")
-        plt.show(block=show_plots)
+        plt.show(block=show_cycles)
     else:
         print("Kinematic results not saved")
 
@@ -1361,7 +1416,6 @@ def main():
     rmos = stepw_mos_corr(fl_stepw=fl_step, hl_stepw=hl_step, mos_values=rmos)
 
     avg_flux = xcom_flux(xcom=xcom_trimmed)
-    print(avg_flux)
 
     # print(f"L MoS unaltered {lmos}\n")
     # print(f"L MoS adjusted by step width {lmos_corr_test}\n")
@@ -1434,7 +1488,7 @@ def main():
         print("Mos results saved!")
     elif manual_analysis is False and save_auto is False and show_plots is True:
         print("Mos results not saved")
-        plt.show(block=show_plots)
+        plt.show(block=show_mos)
     else:
         print("Mos results not saved")
 

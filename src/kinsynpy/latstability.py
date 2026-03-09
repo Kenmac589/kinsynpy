@@ -12,6 +12,7 @@ from typing import Union
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import polars as pl
 import scipy as sp
 import seaborn as sns
 
@@ -99,6 +100,8 @@ def swing_estimation(input_dataframe, x_channel, width_threshold=40):
     ----------
     input_dataframe:
         Exported channels from spike most importantly the x values for a channel
+    x_channel: str
+        Name of the channel to grab peaks and troughs from
 
     Returns
     -------
@@ -652,6 +655,88 @@ def hip_height(
     return hip_height
 
 
+def hip_height_pl(
+    input_dataframe,
+    toey="24 toey (cm)",
+    hipy="16 Hipy (cm)",
+    manual=False,
+    prominence=0.004,
+):
+    """Approximates Hip Height
+    input_dataframe:
+        spike file input as *.csv
+    toey:
+        spike channel with y coordinate for the toe
+    hipy:
+        spike channel with y coordinate for the hip
+    manual:
+        (Boolean) whether to manually label regions where foot is on ground
+
+    Returns
+    -------
+    hip_height: returns hip height in meters (cm)
+    """
+
+    # Bringing in the values for toey and hipy
+    toey_values = input_dataframe[toey].to_numpy()
+    hipy_values = input_dataframe[hipy].to_numpy()
+
+    # Remove missing values
+    toey_values = toey_values[np.logical_not(np.isnan(toey_values))]
+    hipy_values = hipy_values[np.logical_not(np.isnan(hipy_values))]
+
+    # Either manually mark regions foot is on the ground or go with proxy
+    if manual is False:
+        # Getting lower quartile value of toey as proxy for the ground
+        toey_cutoff = np.percentile(toey_values, q=75)
+        toey_values[toey_values > toey_cutoff] = np.nan
+        toey_peaks, properties = sp.signal.find_peaks(
+            -toey_values, prominence=(None, prominence)
+        )
+        toey_lower = toey_values[toey_peaks]
+        toey_lower = np.mean(toey_lower)
+
+        average_hip_value = np.mean(hipy_values)
+        hip_height = average_hip_value - toey_lower
+
+        # plt.plot(toey_values, label="toey")
+        # plt.plot(hipy_values, label="hipy")
+        # plt.plot(toey_peaks, toey_values[toey_peaks], "x")
+        # plt.show()
+
+    elif manual is True:
+        # Selection of regions foot would be on the ground
+        on_ground_regions, _ = manual_marks(
+            toey_values, title="Select Regions foot is on the ground"
+        )
+
+        toe_to_consider = np.array([])
+        hip_to_consider = np.array([])
+        stance_begin = on_ground_regions[0::2]
+        swing_begin = on_ground_regions[1::2]
+
+        for i in range(len(stance_begin)):
+            # Get regions to consider
+            begin = stance_begin[i]
+            end = swing_begin[i]
+
+            relevant_toe = toey_values[begin:end]
+            relevant_hip = hipy_values[begin:end]
+
+            toe_to_consider = np.append(toe_to_consider, relevant_toe)
+            hip_to_consider = np.append(hip_to_consider, relevant_hip)
+
+        # Calculate hip height from filtered regions
+        average_hip_value = np.mean(hip_to_consider)
+        average_toe_value = np.mean(toe_to_consider)
+        hip_height = hip_to_consider - toe_to_consider
+
+    else:
+        print("The `manual` variable must be a boolean")
+
+    return hip_height
+
+
 def froud_number(
     input_dataframe, trdm="2 Trdml", toey="24 toey (cm)", hipy="16 Hipy (cm)"
 ):
@@ -877,8 +962,8 @@ def cycle_period_summary(directory_path):
     print(f"Data has been saved to {cycle_results_csv}")
 
 
-def step_amp(input_dataframe, swon, swoff, toex, toey, hipx, hipy):
-    """Get step amplitude
+def step_amp_ev(input_dataframe, swon, swoff, toex, hipx):
+    """Get step amplitude based on manually labelled event channels in spike
 
     Parameters
     ----------
@@ -890,12 +975,70 @@ def step_amp(input_dataframe, swon, swoff, toex, toey, hipx, hipy):
         spike channel with the swing offset event channel
     toex:
         spike channel with x coordinate for the toe
-    toey:
-        spike channel with y coordinate for the toe
     hipx:
         spike channel with x coordinate for the hip
-    hipy:
-        spike channel with y coordinate for the hip
+
+    Returns
+    -------
+    step_diffs:
+        step amplitude for each step cycle (cm)
+    stan_durs:
+
+    """
+
+    value_to_find = 1
+
+    # Grabbing out only relevant channels from spike export
+    input_df_sub = input_dataframe.loc[:, ["Time", swon, swoff, toex, hipx]]
+    input_df_sub = input_df_sub.set_index("Time")
+
+    # Getting times for swing onset and swin
+    swon_marks = input_df_sub.loc[input_df_sub[swon] == value_to_find].index.tolist()
+    swoff_marks = input_df_sub.loc[input_df_sub[swoff] == value_to_find].index.tolist()
+
+    # Starting with first swing onset and filtering out possible prev swoff
+    first_region = swon_marks[0]
+    swoff_marks = [x for x in swoff_marks if x > first_region]
+
+    # Getting x values for channels at swing onset
+    toex_swon = input_df_sub.loc[swon_marks, :][toex].values
+    hipx_swon = input_df_sub.loc[swon_marks, :][hipx].values
+
+    # Getting x values for channels at swing offset
+    toex_swoff = input_df_sub.loc[swoff_marks, :][toex].values
+    hipx_swoff = input_df_sub.loc[swoff_marks, :][hipx].values
+
+    # Getting limit of compatible pairs of onsets and offsets
+    if len(swoff_marks) >= len(swon_marks):
+        comparable_steps = swon_marks
+    else:
+        comparable_steps = swoff_marks
+
+    step_amps = np.array([])
+
+    # Getting difference for each step cycle
+    for i in range(len(comparable_steps)):
+        hip_swon_diff = toex_swon[i] - hipx_swon[i]
+        hip_swoff_diff = toex_swoff[i] - hipx_swoff[i]
+        step_diff = hip_swoff_diff - hip_swon_diff
+        step_amps = np.append(step_amps, step_diff)
+
+    return step_amps
+
+
+def step_amp_ap(input_dataframe, toex, hipx, width_threshold=40):
+    """Get step amplitude from estimated swing onsets and offsets
+
+    Parameters
+    ----------
+    input_dataframe:
+        spike file input as *.csv
+    toex:
+        spike channel with x coordinate for the toe
+    hipx:
+        spike channel with x coordinate for the hip
+    width_threshold: int
+        threshold for peak finder from scipy
 
     Returns
     -------
@@ -904,33 +1047,28 @@ def step_amp(input_dataframe, swon, swoff, toex, toey, hipx, hipy):
 
     """
 
-    value_to_find = 1
-
     # Grabbing out only relevant channels from spike export
-    input_dataframe_subset = input_dataframe.loc[
-        :, ["Time", swon, swoff, toex, toey, hipx, hipy]
-    ]
-    input_dataframe_subset = input_dataframe_subset.set_index("Time")
+    input_df_sub = input_dataframe.loc[:, ["Time", toex, hipx]]
+    # input_df_sub = input_df_sub.set_index("Time")
 
     # Getting times for swing onset and swin
-    swon_marks = input_dataframe_subset.loc[
-        input_dataframe_subset[swon] == value_to_find
-    ].index.tolist()
-    swoff_marks = input_dataframe_subset.loc[
-        input_dataframe_subset[swoff] == value_to_find
-    ].index.tolist()
+    swon_marks, swoff_marks = swing_estimation(
+        input_dataframe=input_df_sub, x_channel=toex
+    )
+
+    toex_np = input_df_sub[toex].values
+    hipx_np = input_df_sub[hipx].values
 
     # Starting with first swing onset and filtering out possible prev swoff
     first_region = swon_marks[0]
     swoff_marks = [x for x in swoff_marks if x > first_region]
 
-    # Getting x values for channels at swing onset
-    toex_swon = input_dataframe_subset.loc[swon_marks, :][toex].values
-    hipx_swon = input_dataframe_subset.loc[swon_marks, :][hipx].values
+    # Getting X cords of toe and hip at onset and offset
+    toex_swon = toex_np[swon_marks]
+    hipx_swon = hipx_np[swon_marks]
 
-    # Getting x values for channels at swing offset
-    toex_swoff = input_dataframe_subset.loc[swoff_marks, :][toex].values
-    hipx_swoff = input_dataframe_subset.loc[swoff_marks, :][hipx].values
+    toex_swoff = toex_np[swoff_marks]
+    hipx_swoff = hipx_np[swoff_marks]
 
     # Getting limit of compatible pairs of onsets and offsets
     if len(swoff_marks) >= len(swon_marks):
@@ -938,16 +1076,48 @@ def step_amp(input_dataframe, swon, swoff, toex, toey, hipx, hipy):
     else:
         comparable_steps = swoff_marks
 
-    step_diffs = np.array([])
+    step_amps = np.array([])
 
     # Getting difference for each step cycle
     for i in range(len(comparable_steps)):
         hip_swon_diff = toex_swon[i] - hipx_swon[i]
         hip_swoff_diff = toex_swoff[i] - hipx_swoff[i]
-        step_diff = hip_swoff_diff - hip_swon_diff
-        step_diffs = np.append(step_diffs, step_diff)
 
-    return step_diffs
+        step_diff = hip_swoff_diff - hip_swon_diff
+        step_amps = np.append(step_amps, step_diff)
+
+    return step_amps
+
+
+def dcom(input_dataframe, xcom, comy, manual_peaks=False, width_threshold=40):
+
+    xcom_np = input_dataframe[xcom].values
+    comy_np = input_dataframe[comy].values
+    if manual_peaks is False:
+        # Getting peaks and troughs
+        xcom_peaks, _ = sp.signal.find_peaks(xcom_np, width=width_threshold)
+        xcom_troughs, _ = sp.signal.find_peaks(-xcom_np, width=width_threshold)
+    else:
+        print("The `manual` variable must be a boolean")
+
+    lmos_values = np.array([])
+    rmos_values = np.array([])
+
+    com_peak_locs = comy_np[xcom_peaks]
+    com_troughs_locs = comy_np[xcom_troughs]
+
+    if len(xcom_peaks) >= len(xcom_troughs):
+        comparable_flux = xcom_troughs
+    else:
+        comparable_flux = xcom_peaks
+
+    xcom_diffs = np.array([])
+    # Getting difference for each step cycle
+    for i in range(len(comparable_flux)):
+        xcom_diff = com_peak_locs[i] - com_troughs_locs[i]
+        xcom_diffs = np.append(xcom_diffs, xcom_diff)
+
+    return xcom_diffs
 
 
 # Main Code Body
@@ -963,24 +1133,42 @@ def main():
     hipy_ch = "16 Hipy (cm)"
     toex_ch = "23 toex (cm)"
     toey_ch = "24 toey (cm)"
+    xcom = "v7 xCoM"
+    comy = "37 CoMy (cm)"
 
-    wt1nondf = pd.read_csv("../../data/spike_exports/wt-1-non-all.txt")
+    wt1nondf = pd.read_csv("../../data/spike_exports/wt-1-non-all.csv")
     wt5nondf = pd.read_csv("../../data/spike_exports/wt-5-non-all.txt")
     # emg_testdf = pd.read_csv(
     #     "../../../lamisa_honours/lamisa_analysis/spike_exports/emg-test-4-pre-emg-non.txt"
     # )
 
-    step_amplitude = step_amp(
+    # Step Amplitude Calculations
+    step_amplitude_manual = step_amp_ev(
         wt1nondf,
         swon=swon_ch,
         swoff=swoff_ch,
         toex=toex_ch,
-        toey=toey_ch,
         hipx=hipx_ch,
-        hipy=hipy_ch,
     )
 
-    print(step_amplitude)
+    step_amplitude_approx = step_amp_ap(
+        wt1nondf,
+        toex=toex_ch,
+        hipx=hipx_ch,
+    )
+
+    com_disp = dcom(
+        input_dataframe=wt1nondf,
+        xcom=xcom,
+        comy=comy,
+        manual_peaks=False,
+        width_threshold=40,
+    )
+
+    print(np.mean(com_disp))
+
+    print(f"Average Step Amplitude (Manual): {np.mean(step_amplitude_manual)}\n")
+    print(f"Average Step Amplitude (Approximated): {np.mean(step_amplitude_approx)}\n")
 
     # Getting stance duration for all 4 limbs
     lhl_st_lengths, lhl_st_timings = stance_duration(
