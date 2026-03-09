@@ -1007,38 +1007,6 @@ def stepw_mos_corr(fl_stepw, hl_stepw, mos_values):
     return corr_mos_values
 
 
-# TODO: Flesh this out, not broken but not capturing what I'm looking for yet
-def xcom_flux(xcom, width_threshold=40):
-    """
-    Parameters
-    ----------
-    xcom: np.ndarray
-        1-D array of of xCoM
-    width_threshold: int, default=`40`
-        Threshold for finding peaks and troughs.
-
-    Returns
-    -------
-    avg_flux: np.float64
-        Average value indicating how much xCoM is fluctuating
-
-    """
-
-    # Getting peaks and troughs
-    xcom_peaks, _ = sig.find_peaks(xcom, width=width_threshold)
-    xcom_troughs, _ = sig.find_peaks(-xcom, width=width_threshold)
-
-    difs = np.array([])
-
-    for peak, through in zip(xcom_peaks, xcom_troughs):
-        wave_dif = np.abs(xcom[peak] - xcom[through])
-        difs = np.append(difs, wave_dif)
-
-    avg_flux = np.mean(difs)
-
-    return avg_flux
-
-
 def limb_measurements(
     input_skeleton,
     skeleton_list,
@@ -1193,6 +1161,49 @@ def step_amp(
     return step_amps
 
 
+def dcom(
+    xcom: np.array, comy: np.array, manual_analysis=False, width_threshold=40
+) -> np.array:
+    """Get the average fluxuation in the movement of the xCoM
+    xcom: np.ndarray
+        x coordinate of xCoM
+    comy: np.ndarray
+        y coordinate of Centre of Mass (CoM)
+
+    Returns
+    -------
+    xcom_diffs: np.ndarray
+        numpy array containing the differences between xcom peaks and troughs
+
+
+    """
+    if manual_analysis is False:
+        # Getting peaks and troughs
+        xcom_peaks, _ = sig.find_peaks(xcom, width=width_threshold)
+        xcom_troughs, _ = sig.find_peaks(-xcom, width=width_threshold)
+    elif manual_analysis is True:
+        xcom_peaks, _ = manual_marks(xcom, title="Select xCoM Peaks")
+        xcom_troughs, _ = manual_marks(-xcom, title="Select xCoM Troughs")
+    else:
+        print("The `manual_peaks` variable must be a boolean")
+
+    com_peak_locs = comy[xcom_peaks]
+    com_trough_locs = comy[xcom_troughs]
+
+    if len(xcom_peaks) >= len(xcom_troughs):
+        comparable_flux = xcom_troughs
+    else:
+        comparable_flux = xcom_peaks
+
+    xcom_diffs = np.array([])
+    # Getting difference for each step cycle
+    for i in range(len(comparable_flux)):
+        xcom_diff = com_peak_locs[i] - com_trough_locs[i]
+        xcom_diffs = np.append(xcom_diffs, xcom_diff)
+
+    return xcom_diffs
+
+
 # TODO: Finish double support function
 def main():
     # NOTE: Very important this is checked before running
@@ -1329,6 +1340,11 @@ def main():
     step_amplitude = step_amp(toex_np, hipx_np)
     stance_d = stance_duration(toex_np)
 
+    xcom_amp = dcom(
+        xcom=xcom_trimmed, comy=comy_np, manual_analysis=False, width_threshold=40
+    )
+
+    print(np.mean(xcom_amp))
     # print(step_amplitude)
 
     # print(step_amplitude)

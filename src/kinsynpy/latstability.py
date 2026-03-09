@@ -1100,9 +1100,6 @@ def dcom(input_dataframe, xcom, comy, manual_peaks=False, width_threshold=40):
     else:
         print("The `manual` variable must be a boolean")
 
-    lmos_values = np.array([])
-    rmos_values = np.array([])
-
     com_peak_locs = comy_np[xcom_peaks]
     com_troughs_locs = comy_np[xcom_troughs]
 
