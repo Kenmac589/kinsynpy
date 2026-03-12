@@ -1108,6 +1108,9 @@ def dcom(input_dataframe, xcom, comy, manual_peaks=False, width_threshold=40):
     else:
         comparable_flux = xcom_peaks
 
+    # plt.plot(xcom_np)
+    # plt.plot(xcom_peaks, xcom_np[xcom_peaks], "^")
+    # plt.show()
     xcom_diffs = np.array([])
     # Getting difference for each step cycle
     for i in range(len(comparable_flux)):
