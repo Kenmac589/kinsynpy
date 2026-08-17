@@ -15,6 +15,7 @@ import pandas as pd
 import polars as pl
 import scipy as sp
 import seaborn as sns
+from kinsynpy import dlctools as dlt
 
 
 def read_all_csv(directory_path):
@@ -324,6 +325,73 @@ def stance_duration(
     return stance_duration_lengths, stance_duration_timings
 
 
+def stance_dur_est(input_dataframe, x_channel, width_threshold=40):
+    """Stance duration during step cycle
+
+    Parameters
+    ----------
+    input_dataframe:
+        Exported channels from spike most importantly the x values for a channel
+    x_channel:
+        x_channel to get onsets and offset from
+    width_threshold: int, default=`40`
+        The width cutoff used by `scipy.signal.find_peaks`
+
+    Returns
+    -------
+    stance_duration_lengths:
+        How long each stance duration is
+    stance_duration_timings:
+        List of timings where stance duration begins
+    """
+
+    input_df_sub = input_dataframe.loc[:, ["Time", x_channel]]
+
+    time = input_df_sub["Time"]
+    toex_np = input_df_sub[x_channel]
+
+    toe_swon, toe_swoff = swing_estimation(input_df_sub, x_channel)
+
+    # print(toe_swon, toe_swoff)
+
+    swoff_time = time[toe_swoff].values
+    swon_time = time[toe_swon].values
+
+    # print()
+    # print(f"SWOFF {swoff_time}")
+    # print(f"SWON {swon_time}")
+
+    first_region = swoff_time[0]
+    swon_time = [x for x in swon_time if x > first_region]
+    swon_time = np.array(swon_time)
+
+    # print()
+    # print(f"SWOFF {swoff_time}")
+    # print(f"SWON {swon_time}")
+
+    if len(swoff_time) >= len(swon_time):
+        comparable_steps = swon_time
+    else:
+        comparable_steps = swoff_time
+
+    stance_durs = np.array([])
+    for i in range(len(comparable_steps)):
+        stan_dur = swon_time[i] - swoff_time[i]
+
+        stance_durs = np.append(stance_durs, stan_dur)
+
+    # Creating masks to filter any values above 1 as this would be between distinct recordings
+    recording_cutoff_high = 0.6
+    recording_cutoff_low = 0.000
+    cutoff_high = stance_durs <= recording_cutoff_high
+    cutoff_low = stance_durs >= recording_cutoff_low
+    combined_filter = np.logical_and(cutoff_low, cutoff_high)
+    # Applying the filter to the arrays
+    stance_durations = stance_durs[combined_filter]
+
+    return stance_durations
+
+
 def weighted_slope(input_dataframe, p, comy="37 CoMy (cm)"):
     data = input_dataframe[comy].values
 
@@ -457,7 +525,7 @@ def step_width(
     ll_swoff: str,
     rl_y: str,
     ll_y: str,
-) -> np.array:
+) -> np.ndarray:
     """Step width during step cycle
 
     Parameters
@@ -522,7 +590,7 @@ def step_width_est(
     ll_x: str,
     rl_y: str,
     ll_y: str,
-) -> np.array:
+) -> np.ndarray:
     """Step width during step cycle
 
     Parameters
@@ -1164,6 +1232,10 @@ def main():
         manual_peaks=False,
         width_threshold=40,
     )
+
+    stance_durs = stance_dur_est(wt1nondf, toex_ch)
+
+    print(f"Average Stance dur {np.mean(stance_durs)}")
 
     print(np.mean(com_disp))
 

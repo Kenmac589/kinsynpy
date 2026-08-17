@@ -2,8 +2,8 @@
 Set of helper functions to perform some kinematic analysis from DeepLabCut output.
 
 author: Kenzie MacKinnon
-email (Personal): kenziemackinnon5@gmail.com
 email (Work): kenzie.mackinnon@dal.ca
+email (Personal): kenziemackinnon5@gmail.com
 
 Credit for `load_data` and `smooth_trajectory` are exact copies from `dlc2kinematics`
 and of course the whole suite of software around it. Simply wanted to minimize the
@@ -329,7 +329,7 @@ def analysis_reg_sel(mirror_y, com_y):
 
 def mark_process(df, scorer, marker, cord, calib, smooth_wind=40):
     """
-    Extracts out and smoothens a marker coordinate to an numpy array
+    Extracts and smoothens a marker coordinate to an numpy array
 
     Parameters
     ----------
@@ -716,11 +716,11 @@ def lazy_cop(fl_y, hl_y):
 
 
 def step_width_est(
-    rl_x: np.array,
-    ll_x: np.array,
-    rl_y: np.array,
-    ll_y: np.array,
-) -> np.array:
+    rl_x: np.ndarray,
+    ll_x: np.ndarray,
+    rl_y: np.ndarray,
+    ll_y: np.ndarray,
+) -> np.ndarray:
     """Step width during step cycle
 
     Parameters
@@ -1071,17 +1071,17 @@ def stance_duration(x_channel, width_threshold=40):
 
     toe_swon, toe_swoff = swing_estimation(x_channel, width_threshold=width_threshold)
 
-    print(f"SWOFF {toe_swoff}")
-    print(f"SWON {toe_swon}")
+    # print(f"SWOFF {toe_swoff}")
+    # print(f"SWON {toe_swon}")
 
     # Find the first stance phase to start tracking time duration
     first_region = toe_swoff[0]
     toe_swon = [x for x in toe_swon if x > first_region]
     toe_swon = np.array(toe_swon)
 
-    print()
-    print(f"SWOFF {toe_swoff}")
-    print(f"SWON {toe_swon}")
+    # print()
+    # print(f"SWOFF {toe_swoff}")
+    # print(f"SWON {toe_swon}")
 
     time_conversion = np.vectorize(frame_to_time)
     offset_timing = time_conversion(toe_swoff)
@@ -1111,12 +1111,73 @@ def stance_duration(x_channel, width_threshold=40):
     return stance_durations
 
 
+def swing_duration(x_channel, width_threshold=40):
+    """Swing duration during step cycle
+
+    Parameters
+    ----------
+    x_channel:
+        x_channel to get onsets and offset from
+    width_threshold: int, default=`40`
+        The width cutoff used by `scipy.signal.find_peaks`
+
+    Returns
+    -------
+    swing_duration_lengths:
+        How long each stance duration is
+    swing_duration_timings:
+        List of timings where stance duration begins
+    """
+
+    toe_swon, toe_swoff = swing_estimation(x_channel, width_threshold=width_threshold)
+
+    # print(f"SWOFF {toe_swoff}")
+    # print(f"SWON {toe_swon}")
+
+    # Find the first stance phase to start tracking time duration
+    first_region = toe_swon[0]
+    toe_swoff = [x for x in toe_swoff if x > first_region]
+    toe_swoff = np.array(toe_swoff)
+
+    # print()
+    # print(f"SWOFF {toe_swoff}")
+    # print(f"SWON {toe_swon}")
+
+    time_conversion = np.vectorize(frame_to_time)
+    offset_timing = time_conversion(toe_swoff)
+    onset_timing = time_conversion(toe_swon)
+
+    if len(toe_swoff) >= len(toe_swon):
+        comparable_steps = toe_swon
+    else:
+        comparable_steps = toe_swoff
+
+    swing_durs = np.array([])
+    for i in range(len(comparable_steps)):
+        swing_dur = np.abs(offset_timing[i] - onset_timing[i])
+
+        print(swing_dur)
+        swing_durs = np.append(swing_durs, swing_dur)
+
+    # Creating masks to filter any values above 1 as this would be between distinct recordings
+    recording_cutoff_high = 0.3
+    recording_cutoff_low = 0.000
+    cutoff_high = swing_durs <= recording_cutoff_high
+    cutoff_low = swing_durs >= recording_cutoff_low
+    combined_filter = np.logical_and(cutoff_low, cutoff_high)
+    # Applying the filter to the arrays
+    swing_durations = swing_durs[combined_filter]
+    print(np.mean(swing_durations))
+
+    return swing_durations
+
+
 def step_amp(
-    toe_x: np.array,
-    hip_x: np.array,
+    toe_x: np.ndarray,
+    hip_x: np.ndarray,
     manual_peaks=False,
     width_threshold=40,
-) -> np.array:
+) -> np.ndarray:
     """Step width during step cycle
 
     Parameters
@@ -1162,8 +1223,8 @@ def step_amp(
 
 
 def dcom(
-    xcom: np.array, comy: np.array, manual_analysis=False, width_threshold=40
-) -> np.array:
+    xcom: np.ndarray, comy: np.ndarray, manual_analysis=False, width_threshold=40
+) -> np.ndarray:
     """Get the average fluxuation in the movement of the xCoM
     xcom: np.ndarray
         x coordinate of xCoM
@@ -1339,6 +1400,10 @@ def main():
     # Step Cycle information
     step_amplitude = step_amp(toex_np, hipx_np)
     stance_d = stance_duration(toex_np)
+    swing_d = swing_duration(toex_np)
+
+    print(f"Stance dur: {np.mean(stance_d)}")
+    print(f"Swing dur: {np.mean(swing_d)}")
 
     xcom_amp = dcom(
         xcom=xcom_trimmed, comy=comy_np, manual_analysis=False, width_threshold=40
@@ -1430,8 +1495,6 @@ def main():
 
     lmos = stepw_mos_corr(fl_stepw=fl_step, hl_stepw=hl_step, mos_values=lmos)
     rmos = stepw_mos_corr(fl_stepw=fl_step, hl_stepw=hl_step, mos_values=rmos)
-
-    avg_flux = xcom_flux(xcom=xcom_trimmed)
 
     # print(f"L MoS unaltered {lmos}\n")
     # print(f"L MoS adjusted by step width {lmos_corr_test}\n")
